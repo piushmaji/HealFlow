@@ -3,6 +3,8 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ToastContainer } from '../common/Toast';
 import { FloatingAICopilot } from '../common/FloatingAICopilot';
+import { HealFlowLogo } from '../common/HealFlowLogo';
+import { HealFlowIcon } from '../common/HealFlowIcon';
 import {
   Activity,
   LayoutDashboard,
@@ -112,14 +114,17 @@ export const DashboardLayout = () => {
         <div className="space-y-6">
           {/* Brand Header */}
           <div className="flex items-center justify-between px-2 pt-2">
-            <Link to={isDoctor ? "/doctor-dashboard" : "/patients/dashboard"} className="flex items-center gap-2.5 group outline-none focus:outline-none" style={{ outline: 'none' }}>
-              <div className="w-9 h-9 rounded-full bg-white text-[#4C5BBD] flex items-center justify-center font-bold shadow-none group-hover:scale-105 transition-transform">
-                <Activity className="w-5 h-5" />
-              </div>
+            <Link
+              to={isDoctor ? "/doctor-dashboard" : "/patients/dashboard"}
+              className="flex items-center gap-2.5 group outline-none focus:outline-none"
+              style={{ outline: 'none' }}
+            >
+              <HealFlowIcon variant="light" size={28} className="shrink-0 group-hover:scale-105 transition-transform" />
+
               <div>
-                <div className="flex items-center gap-1 font-heading">
-                  <span className="font-black text-lg text-white">Heal</span>
-                  <span className="font-extrabold text-lg text-[#CEDEFF]">Flow</span>
+                <div className="flex items-center gap-1 font-heading font-black text-lg text-white tracking-wide">
+                  <span>HEAL</span>
+                  <span className="text-[#CEDEFF]">FLOW</span>
                 </div>
                 <p className="text-[9px] text-[#CEDEFF]/80 font-bold uppercase tracking-wider">
                   {isDoctor ? 'Doctor Workspace' : 'Patient Portal'}

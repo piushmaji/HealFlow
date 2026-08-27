@@ -13,6 +13,8 @@ import {
   ArrowLeft,
   CheckCircle2,
 } from 'lucide-react';
+import { HealFlowLogo } from '../components/common/HealFlowLogo';
+import { HealFlowIcon } from '../components/common/HealFlowIcon';
 import { MOCK_DOCTORS } from '../utils/mockData';
 
 export const LoginPage = () => {
@@ -67,15 +69,7 @@ export const LoginPage = () => {
       {/* 1. Header (Borderless & Shadowless) */}
       <header className="shrink-0 max-w-6xl mx-auto w-full flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5 group outline-none" style={{ outline: 'none' }}>
-          <div className="w-9 h-9 rounded-full bg-[#4C5BBD] flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
-            <Activity className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1 font-heading">
-              <span className="font-black text-lg tracking-tight text-[#1F1F1F]">Heal</span>
-              <span className="font-extrabold text-lg text-[#4C5BBD]">Flow</span>
-            </div>
-          </div>
+          <HealFlowLogo height={32} />
         </Link>
 
         <Link

@@ -35,11 +35,11 @@ export const HomePage = () => {
     <div className="bg-white font-sans text-[#1F1F1F] space-y-20 pb-20">
       
       {/* 1. Hero Section - Static Informational Landing Page */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#F2F5FF]/80 via-white to-white py-24 px-4 sm:px-6 lg:px-8 border-b border-[#CEDEFF]/60">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#F2F5FF]/80 via-white to-white py-24 px-4 sm:px-6 lg:px-8 border-0">
         <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
           
           {/* Top Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white text-[#5B81FA] border border-[#CEDEFF] text-xs font-bold shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white text-[#5B81FA] border-0 text-xs font-bold shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-[#5B81FA]" />
             <span>Smart OPD Appointments & Real-Time Live Queue</span>
           </div>
@@ -50,38 +50,35 @@ export const HomePage = () => {
           </h1>
 
           {/* Static Short Description */}
-          <p className="text-sm sm:text-base text-[#6B6E84] max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-base text-[#6B6E84] max-w-2xl mx-auto leading-relaxed font-medium">
             Book verified hospital specialists, receive an instant digital OPD queue token, and track your consultation turn in real time without standing in crowded waiting rooms.
           </p>
 
-          {/* Exactly 2 Clean Buttons (Redirect to Sign In) */}
+          {/* Clean Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-            <Button
-              variant="primary"
-              size="lg"
-              pill
-              icon={ArrowRight}
-              iconPosition="right"
+            <button
+              type="button"
               onClick={() => handleAction('/doctors')}
-              className="w-full sm:w-auto font-bold py-3.5 px-8 shadow-material-2 text-sm"
+              style={{ outline: 'none' }}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 py-3.5 px-8 rounded-full bg-[#5B81FA] hover:bg-[#486de8] text-white text-sm font-black shadow-xs border-0 transition-all"
             >
-              Get Started
-            </Button>
+              <span>Get Started</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
 
-            <Button
-              variant="outline"
-              size="lg"
-              pill
-              icon={Search}
+            <button
+              type="button"
               onClick={() => handleAction('/doctors')}
-              className="w-full sm:w-auto border-[#CEDEFF] text-[#1F1F1F] hover:bg-[#F2F5FF] hover:border-[#5B81FA] text-sm font-bold"
+              style={{ outline: 'none' }}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 py-3.5 px-8 rounded-full bg-[#F2F5FF] hover:bg-[#EBF1FF] text-[#1F1F1F] text-sm font-black border-0 shadow-xs transition-all"
             >
-              Find Doctors
-            </Button>
+              <Search className="w-4 h-4 text-[#5B81FA]" />
+              <span>Find Doctors</span>
+            </button>
           </div>
 
           {/* Static Metrics Bar */}
-          <div className="grid grid-cols-3 gap-6 pt-10 border-t border-[#CEDEFF]/60 max-w-2xl mx-auto text-xs">
+          <div className="grid grid-cols-3 gap-6 pt-10 border-0 max-w-2xl mx-auto text-xs">
             <div>
               <p className="text-2xl font-black text-[#1F1F1F] font-heading">50,000+</p>
               <p className="text-[#6B6E84] font-medium mt-0.5">Appointments Booked</p>
@@ -102,11 +99,11 @@ export const HomePage = () => {
       {/* 2. Static Services Showcase */}
       <section id="services" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="px-3.5 py-1 rounded-full bg-[#F2F5FF] text-[#5B81FA] border border-[#CEDEFF] text-xs font-extrabold uppercase tracking-wider">
+          <span className="px-3.5 py-1 rounded-full bg-[#F2F5FF] text-[#5B81FA] border-0 text-xs font-extrabold uppercase tracking-wider shadow-xs">
             Our Healthcare Services
           </span>
           <h2 className="text-3xl font-black text-[#1F1F1F] font-heading">How HealFlow Elevates Your Care</h2>
-          <p className="text-xs text-[#6B6E84]">
+          <p className="text-xs text-[#6B6E84] font-medium">
             Comprehensive digital healthcare telemetry connecting patients, doctors, and hospital OPD counters seamlessly.
           </p>
         </div>
@@ -140,18 +137,17 @@ export const HomePage = () => {
           ].map((service, idx) => {
             const Icon = service.icon;
             return (
-              <Card
+              <div
                 key={idx}
-                hoverEffect
                 onClick={() => handleAction('/doctors')}
-                className="p-6 bg-white border-[#CEDEFF] flex flex-col justify-between group cursor-pointer"
+                className="p-6 rounded-3xl bg-[#F8FAFE] border-0 shadow-xs flex flex-col justify-between group cursor-pointer hover:bg-[#F2F5FF] transition-all"
               >
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-[#F2F5FF] text-[#5B81FA] border border-[#CEDEFF] flex items-center justify-center group-hover:bg-[#5B81FA] group-hover:text-white transition-colors">
+                    <div className="w-12 h-12 rounded-2xl bg-white text-[#5B81FA] border-0 shadow-xs flex items-center justify-center group-hover:bg-[#5B81FA] group-hover:text-white transition-colors">
                       <Icon className="w-6 h-6" />
                     </div>
-                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-[#F2F5FF] text-[#5B81FA] border border-[#CEDEFF]">
+                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white text-[#5B81FA] border-0 shadow-xs">
                       {service.tag}
                     </span>
                   </div>
@@ -160,17 +156,17 @@ export const HomePage = () => {
                     <h3 className="text-base font-bold text-[#1F1F1F] font-heading group-hover:text-[#5B81FA] transition-colors">
                       {service.title}
                     </h3>
-                    <p className="text-xs text-[#6B6E84] leading-relaxed mt-1.5">
+                    <p className="text-xs text-[#6B6E84] leading-relaxed mt-1.5 font-medium">
                       {service.desc}
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-4 mt-4 border-t border-slate-100 flex items-center text-xs font-bold text-[#5B81FA] gap-1 group-hover:translate-x-1 transition-transform">
+                <div className="pt-4 mt-4 border-0 flex items-center text-xs font-bold text-[#5B81FA] gap-1 group-hover:translate-x-1 transition-transform">
                   <span>Sign in to view</span>
                   <ChevronRight className="w-4 h-4" />
                 </div>
-              </Card>
+              </div>
             );
           })}
         </div>
@@ -178,28 +174,27 @@ export const HomePage = () => {
 
       {/* 3. Static AI Assistant Callout */}
       <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#F2F5FF] rounded-3xl p-8 sm:p-12 border border-[#CEDEFF] shadow-card flex flex-col lg:flex-row items-center justify-between gap-8">
+        <div className="bg-[#F2F5FF] rounded-3xl p-8 sm:p-12 border-0 shadow-xs flex flex-col lg:flex-row items-center justify-between gap-8">
           <div className="space-y-4 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white text-[#5B81FA] border border-[#CEDEFF] text-xs font-extrabold">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white text-[#5B81FA] border-0 text-xs font-extrabold shadow-xs">
               <Sparkles className="w-4 h-4 text-[#5B81FA]" />
               <span>Smart Medical Assistant</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black font-heading text-[#1F1F1F]">Unsure Which Doctor Specialty You Need?</h2>
-            <p className="text-xs text-[#6B6E84] leading-relaxed">
+            <p className="text-xs text-[#6B6E84] leading-relaxed font-medium">
               Describe your symptoms or health queries. Our AI Assistant identifies potential medical specialties and connects you directly with top rated doctors.
             </p>
           </div>
 
-          <Button
-            variant="primary"
-            size="lg"
-            pill
-            icon={Sparkles}
+          <button
+            type="button"
             onClick={() => handleAction('/ai-assistant')}
-            className="shrink-0 font-bold py-3.5 px-8 shadow-material-2 text-sm"
+            style={{ outline: 'none' }}
+            className="shrink-0 flex items-center justify-center gap-2 py-3.5 px-8 rounded-full bg-[#5B81FA] hover:bg-[#486de8] text-white text-xs font-black shadow-xs border-0 transition-all"
           >
-            Sign In for AI Assistant
-          </Button>
+            <Sparkles className="w-4 h-4" />
+            <span>Sign In for AI Assistant</span>
+          </button>
         </div>
       </section>
 
@@ -210,86 +205,87 @@ export const HomePage = () => {
             <span className="text-xs font-extrabold text-[#5B81FA] uppercase tracking-wider">Top Specialists</span>
             <h2 className="text-2xl font-black text-[#1F1F1F] font-heading mt-0.5">Featured Clinic Specialists</h2>
           </div>
-          <Button variant="outline" size="sm" pill onClick={() => handleAction('/doctors')}>
+          <button
+            type="button"
+            onClick={() => handleAction('/doctors')}
+            style={{ outline: 'none' }}
+            className="px-4 py-2 rounded-full bg-[#F2F5FF] text-[#5B81FA] hover:bg-[#EBF1FF] text-xs font-bold border-0 shadow-xs transition-all"
+          >
             View All Doctors
-          </Button>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {MOCK_DOCTORS.slice(0, 3).map((doc) => (
-            <Card key={doc.id} hoverEffect className="p-5 flex flex-col justify-between bg-white border-[#CEDEFF]">
+            <div key={doc.id} className="p-5 rounded-3xl bg-[#F8FAFE] border-0 shadow-xs flex flex-col justify-between">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
                   <img
                     src={doc.avatar_url}
                     alt={doc.name}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-[#CEDEFF]"
+                    className="w-12 h-12 rounded-full object-cover border-0 shadow-xs"
                   />
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase text-[#5B81FA] bg-[#F2F5FF] px-2.5 py-0.5 rounded-full border border-[#CEDEFF]">
+                    <span className="text-[10px] font-extrabold uppercase text-[#5B81FA] bg-white px-2.5 py-0.5 rounded-full border-0 shadow-xs">
                       {doc.specialty}
                     </span>
                     <h3 className="text-sm font-bold text-[#1F1F1F] mt-1 font-heading">{doc.name}</h3>
-                    <p className="text-xs text-[#6B6E84]">{doc.title}</p>
+                    <p className="text-xs text-[#6B6E84] font-medium">{doc.title}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-xs pt-2 border-0">
                   <div className="flex items-center gap-1 font-bold text-amber-500">
                     <Star className="w-3.5 h-3.5 fill-amber-400" />
                     <span>{doc.rating}</span>
                     <span className="text-[#6B6E84] font-normal">({doc.reviews_count})</span>
                   </div>
-                  <span className="font-extrabold text-[#5B81FA]">${doc.fee} / visit</span>
+                  <span className="font-extrabold text-[#5B81FA]">₹{doc.consultation_fee || 800} / visit</span>
                 </div>
               </div>
 
-              <Button
-                variant="primary"
-                size="sm"
-                pill
-                fullWidth
+              <button
+                type="button"
                 onClick={() => handleAction('/doctors')}
-                className="mt-4 py-2.5 text-xs font-bold"
+                style={{ outline: 'none' }}
+                className="mt-4 w-full py-2.5 px-4 rounded-full bg-[#5B81FA] hover:bg-[#486de8] text-white text-xs font-black shadow-xs border-0 transition-all"
               >
                 Sign In to Book Slot
-              </Button>
-            </Card>
+              </button>
+            </div>
           ))}
         </div>
       </section>
 
       {/* 5. Static Bottom CTA Banner */}
       <section id="contact" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#29318A] rounded-3xl p-8 sm:p-12 text-white shadow-material-3 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
+        <div className="bg-[#29318A] rounded-3xl p-8 sm:p-12 text-white shadow-xs flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left border-0">
           <div className="space-y-3 max-w-xl">
-            <h2 className="text-2xl sm:text-3xl font-black font-heading">
+            <h2 className="text-2xl sm:text-3xl font-black font-heading text-white tracking-wide">
               Ready to Experience Waiting-Free OPD Visits?
             </h2>
-            <p className="text-xs text-[#CEDEFF] leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#CEDEFF] font-medium leading-relaxed">
               Join thousands of patients saving hours every week with HealFlow digital queue telemetry.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-            <Button
-              variant="primary"
-              size="lg"
-              pill
+            <button
+              type="button"
               onClick={() => navigate('/login')}
-              className="py-3.5 px-8 font-bold text-sm shadow-material-2"
+              style={{ outline: 'none' }}
+              className="py-3.5 px-8 rounded-full bg-[#5B81FA] hover:bg-[#486de8] text-white text-xs font-black shadow-xs border-0 transition-all"
             >
-              Sign In as Patient
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              pill
+              <span>Sign In as Patient →</span>
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/login')}
-              className="py-3.5 px-6 font-bold text-sm bg-[#29318A] border-white/40 text-white hover:bg-white/10"
+              style={{ outline: 'none' }}
+              className="py-3.5 px-8 rounded-full bg-white hover:bg-[#F2F5FF] text-[#29318A] text-xs font-black shadow-xs border-0 transition-all"
             >
-              Doctor Portal Access
-            </Button>
+              <span>Doctor Portal Access →</span>
+            </button>
           </div>
         </div>
       </section>

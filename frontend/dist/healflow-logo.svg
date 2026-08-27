@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 44" width="100%" height="100%">
+  <defs>
+    <!-- Mask for wavy 'O' icon -->
+    <mask id="o-wave-mask-vibrant">
+      <rect width="230" height="44" fill="#000000" />
+      <path d="M 164 11 A 11.5 11.5 0 1 0 164 34 A 11.5 11.5 0 1 0 164 11 Z M 164 16.5 A 6 6 0 1 1 164 28.5 A 6 6 0 1 1 164 16.5 Z" fill="#ffffff" fill-rule="evenodd" />
+    </mask>
+  </defs>
+
+  <!-- "HEAL" in Crisp Charcoal -->
+  <text x="0" y="32" fill="#1F1F1F" font-family="'Plus Jakarta Sans', 'Poppins', 'Outfit', sans-serif" font-weight="900" font-size="32px" letter-spacing="-0.5px">HEAL</text>
+
+  <!-- "FL" in Indigo -->
+  <text x="114" y="32" fill="#4C5BBD" font-family="'Plus Jakarta Sans', 'Poppins', 'Outfit', sans-serif" font-weight="900" font-size="32px" letter-spacing="-0.5px">FL</text>
+
+  <!-- "O" Icon in High-Contrast Indigo Ring + Sky Blue Wave -->
+  <g>
+    <!-- Indigo Upper Ring -->
+    <path d="M 164 11 A 11.5 11.5 0 1 0 164 34 A 11.5 11.5 0 1 0 164 11 Z M 164 16.5 A 6 6 0 1 1 164 28.5 A 6 6 0 1 1 164 16.5 Z" fill="#4C5BBD" fill-rule="evenodd" />
+
+    <!-- Sky Blue Ocean Wave -->
+    <path mask="url(#o-wave-mask-vibrant)" d="M 148 22.5 C 155 27.5, 161 19.5, 167 23.5 C 172 27.5, 177 22, 182 23.5 L 182 38 L 148 38 Z" fill="#38BDF8" />
+  </g>
+
+  <!-- "W" in Indigo -->
+  <text x="182" y="32" fill="#4C5BBD" font-family="'Plus Jakarta Sans', 'Poppins', 'Outfit', sans-serif" font-weight="900" font-size="32px" letter-spacing="-0.5px">W</text>
+</svg>

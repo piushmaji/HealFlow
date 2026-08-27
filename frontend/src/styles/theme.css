@@ -1,0 +1,53 @@
+/* Centralized Theme Tokens - Crisp White Light Theme */
+:root {
+  /* User Specified Palette */
+  --palette-primary: #5B81FA;       /* Primary Royal Blue */
+  --palette-secondary: #29318A;     /* Deep Midnight Navy Accent */
+  --palette-charcoal: #1F1F1F;      /* Dark Neutral Heading Text */
+  --palette-slate: #6B6E84;         /* Muted Slate Gray Text */
+  --palette-blue-tint: #CEDEFF;     /* Soft Pastel Blue Container */
+  --palette-border: #A8B1CE;        /* Border & Divider */
+  --palette-surface-tint: #F2F5FF;  /* Surface Tint */
+  --palette-surface: #FFFFFF;       /* Pure White Surface */
+  --palette-bg: #FFFFFF;            /* Pure White Main Background */
+
+  /* Functional Light Theme Mapping */
+  --color-primary: #5B81FA;
+  --color-primary-hover: #486de8;
+  --color-primary-light: #CEDEFF;
+  --color-secondary: #29318A;
+  --color-secondary-hover: #1e246d;
+
+  --color-bg-app: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-variant: #F2F5FF;
+  --color-border: #A8B1CE;
+
+  /* Typography */
+  --font-primary: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', 'Poppins', sans-serif;
+
+  --color-text-main: #1F1F1F;
+  --color-text-muted: #6B6E84;
+  --color-text-inverse: #FFFFFF;
+
+  /* Status Colors */
+  --color-success: #10b981;
+  --color-success-bg: #ecfdf5;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fffbe6;
+  --color-danger: #ef4444;
+  --color-danger-bg: #fef2f2;
+
+  /* Border Radius */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --radius-full: 9999px;
+
+  /* Soft Light Shadows */
+  --shadow-material-1: 0 2px 8px -2px rgba(91, 129, 250, 0.12), 0 1px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-material-2: 0 10px 25px -5px rgba(91, 129, 250, 0.18), 0 4px 10px -2px rgba(0, 0, 0, 0.04);
+  --shadow-material-3: 0 18px 36px -8px rgba(91, 129, 250, 0.22), 0 6px 12px -4px rgba(0, 0, 0, 0.05);
+}

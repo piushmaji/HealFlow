@@ -1,0 +1,53 @@
+@import './theme.css';
+@import './utilities.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Kind Sans', 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
+    scroll-behavior: smooth;
+    background-color: #FFFFFF;
+  }
+
+  body {
+    background-color: #FFFFFF;
+    color: #1F1F1F;
+    font-family: 'Kind Sans', 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Kind Sans', 'Plus Jakarta Sans', 'Outfit', sans-serif;
+    color: #1F1F1F;
+  }
+
+  *:focus,
+  *:focus-visible,
+  *:focus-within,
+  input:focus,
+  input:focus-visible,
+  button:focus,
+  button:focus-visible,
+  textarea:focus,
+  select:focus,
+  a:focus {
+    outline: 0 !important;
+    outline-style: none !important;
+    outline-width: 0 !important;
+    outline-color: transparent !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+  }
+}
+
+@layer utilities {
+  /* Secondary font pairing (Inter) to complement Kind Sans */
+  .font-secondary {
+    font-family: 'Inter', 'DM Sans', system-ui, sans-serif;
+  }
+}

@@ -116,12 +116,10 @@ export const DashboardLayout = () => {
           <div className="flex items-center justify-between px-2 pt-2">
             <Link
               to={isDoctor ? "/doctor-dashboard" : "/patients/dashboard"}
-              className="flex items-center gap-3 group outline-none focus:outline-none"
+              className="flex items-center gap-2.5 group outline-none focus:outline-none"
               style={{ outline: 'none' }}
             >
-              <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center p-2 shadow-xs group-hover:scale-105 transition-transform shrink-0">
-                <HealFlowIcon variant="dark" className="w-full h-full" />
-              </div>
+              <HealFlowIcon variant="light" size={28} className="shrink-0 group-hover:scale-105 transition-transform" />
 
               <div>
                 <div className="flex items-center gap-1 font-heading font-black text-lg text-white tracking-wide">

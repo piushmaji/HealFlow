@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
 import {
   Activity,
   Mail,
@@ -15,6 +11,7 @@ import {
   ShieldCheck,
   Phone,
   ArrowLeft,
+  CheckCircle2,
 } from 'lucide-react';
 import { MOCK_DOCTORS } from '../utils/mockData';
 
@@ -30,10 +27,10 @@ export const LoginPage = () => {
   const [portalType, setPortalType] = useState('patient');
   
   // Form fields
-  const [fullName, setFullName] = useState('Alex Morgan');
+  const [fullName, setFullName] = useState('Rahul Sharma');
   const [selectedDoctorId, setSelectedDoctorId] = useState(MOCK_DOCTORS[0].id);
-  const [email, setEmail] = useState('alex.morgan@healflow.health');
-  const [phone, setPhone] = useState('+1 (555) 234-5678');
+  const [email, setEmail] = useState('rahul.sharma@healflow.in');
+  const [phone, setPhone] = useState('+91 98765 43210');
   const [password, setPassword] = useState('••••••••••••');
   const [confirmPassword, setConfirmPassword] = useState('••••••••••••');
   const [specialty, setSpecialty] = useState('Cardiology');
@@ -56,7 +53,7 @@ export const LoginPage = () => {
 
   const handleDemoPatient = () => {
     login('patient');
-    navigate('/patient-dashboard');
+    navigate('/patients/dashboard');
   };
 
   const handleDemoDoctor = () => {
@@ -65,45 +62,48 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gradient-to-b from-[#F2F5FF] via-white to-[#F8FAFE] font-sans flex flex-col justify-between p-4 sm:p-6 text-[#1F1F1F]">
+    <div className="h-screen w-screen overflow-hidden bg-[#EBF1FF] font-sans flex flex-col justify-between p-4 sm:p-6 text-[#1F1F1F]">
       
-      {/* 1. Fixed Header (No outer scroll) */}
+      {/* 1. Header (Borderless & Shadowless) */}
       <header className="shrink-0 max-w-6xl mx-auto w-full flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-full bg-[#5B81FA] flex items-center justify-center text-white shadow-material-1 group-hover:scale-105 transition-transform">
+        <Link to="/" className="flex items-center gap-2.5 group outline-none" style={{ outline: 'none' }}>
+          <div className="w-9 h-9 rounded-full bg-[#4C5BBD] flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
             <Activity className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-1">
-              <span className="font-black text-lg tracking-tight text-[#1F1F1F] font-heading">Heal</span>
-              <span className="font-extrabold text-lg text-[#5B81FA] font-heading">Flow</span>
+            <div className="flex items-center gap-1 font-heading">
+              <span className="font-black text-lg tracking-tight text-[#1F1F1F]">Heal</span>
+              <span className="font-extrabold text-lg text-[#4C5BBD]">Flow</span>
             </div>
           </div>
         </Link>
 
         <Link
           to="/"
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-[#6B6E84] hover:text-[#5B81FA] border border-[#CEDEFF] text-xs font-bold transition-all shadow-sm"
+          style={{ outline: 'none' }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-[#6B6E84] hover:text-[#4C5BBD] border-0 text-xs font-bold transition-all shadow-xs"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back to Home</span>
         </Link>
       </header>
 
-      {/* 2. Middle Container - Fits inside height */}
+      {/* 2. Main Authentication Card (Borderless) */}
       <main className="flex-1 flex items-center justify-center min-h-0 py-2">
-        <div className="w-full max-w-lg max-h-full bg-white border border-[#CEDEFF] shadow-card-hover rounded-3xl p-6 sm:p-8 flex flex-col overflow-hidden">
+        <div className="w-full max-w-lg max-h-full bg-white border-0 shadow-xs rounded-3xl p-6 sm:p-8 flex flex-col overflow-hidden">
           
-          {/* Fixed Card Top: Mode Switcher & Title */}
-          <div className="shrink-0 space-y-4 pb-4 border-b border-slate-100">
-            {/* Mode Switcher */}
-            <div className="p-1 bg-[#F2F5FF] border border-[#CEDEFF] rounded-full flex items-center gap-1 max-w-xs mx-auto">
+          {/* Card Top: Auth Mode & Role Switcher */}
+          <div className="shrink-0 space-y-4 pb-4 border-0">
+            
+            {/* Mode Switcher Pills (Sign In vs Register) */}
+            <div className="p-1 bg-[#F8FAFE] border-0 rounded-full flex items-center gap-1 max-w-xs mx-auto shadow-xs">
               <button
                 type="button"
                 onClick={() => setAuthMode('login')}
-                className={`flex-1 py-1.5 px-3 rounded-full text-xs font-bold transition-all duration-200 ${
+                style={{ outline: 'none' }}
+                className={`flex-1 py-2 px-4 rounded-full text-xs font-bold transition-all border-0 ${
                   authMode === 'login'
-                    ? 'bg-[#5B81FA] text-white shadow-material-1'
+                    ? 'bg-[#4C5BBD] text-white shadow-xs'
                     : 'text-[#6B6E84] hover:text-[#1F1F1F]'
                 }`}
               >
@@ -112,9 +112,10 @@ export const LoginPage = () => {
               <button
                 type="button"
                 onClick={() => setAuthMode('register')}
-                className={`flex-1 py-1.5 px-3 rounded-full text-xs font-bold transition-all duration-200 ${
+                style={{ outline: 'none' }}
+                className={`flex-1 py-2 px-4 rounded-full text-xs font-bold transition-all border-0 ${
                   authMode === 'register'
-                    ? 'bg-[#5B81FA] text-white shadow-material-1'
+                    ? 'bg-[#4C5BBD] text-white shadow-xs'
                     : 'text-[#6B6E84] hover:text-[#1F1F1F]'
                 }`}
               >
@@ -122,38 +123,41 @@ export const LoginPage = () => {
               </button>
             </div>
 
+            {/* Header Titles */}
             <div className="text-center space-y-1">
-              <h2 className="text-xl sm:text-2xl font-black text-[#1F1F1F] font-heading tracking-tight">
-                {authMode === 'login' ? 'Welcome Back to HealFlow' : 'Create Your Account'}
+              <h2 className="text-xl sm:text-2xl font-black text-[#1F1F1F] font-heading tracking-wide">
+                {authMode === 'login' ? 'Welcome Back to HealFlow' : 'Create Your Health Account'}
               </h2>
-              <p className="text-[11px] text-[#6B6E84]">
+              <p className="text-xs text-[#6B6E84] font-medium">
                 {authMode === 'login'
-                  ? 'Access your appointment tokens and live queue history.'
+                  ? 'Access live OPD queue tokens, consultations, and medical records.'
                   : 'Join thousands saving hours on hospital OPD visits every week.'}
               </p>
             </div>
 
-            {/* Patient vs Doctor Sub-Toggle */}
-            <div className="p-1 bg-[#F2F5FF] border border-[#CEDEFF] rounded-full flex items-center gap-1">
+            {/* Role Switcher Pills (Patient vs Doctor) */}
+            <div className="p-1 bg-[#F8FAFE] border-0 rounded-full flex items-center gap-1 shadow-xs">
               <button
                 type="button"
                 onClick={() => setPortalType('patient')}
-                className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-full text-xs font-bold transition-all duration-200 ${
+                style={{ outline: 'none' }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-full text-xs font-bold transition-all border-0 ${
                   portalType === 'patient'
-                    ? 'bg-white text-[#5B81FA] border border-[#CEDEFF] shadow-sm'
+                    ? 'bg-white text-[#4C5BBD] shadow-xs'
                     : 'text-[#6B6E84] hover:text-[#1F1F1F]'
                 }`}
               >
-                <User className="w-3.5 h-3.5 text-[#5B81FA]" />
-                <span>Patient</span>
+                <User className="w-3.5 h-3.5 text-[#4C5BBD]" />
+                <span>Patient Portal</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPortalType('doctor')}
-                className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-full text-xs font-bold transition-all duration-200 ${
+                style={{ outline: 'none' }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-full text-xs font-bold transition-all border-0 ${
                   portalType === 'doctor'
-                    ? 'bg-[#29318A] text-white shadow-sm'
+                    ? 'bg-[#161B33] text-white shadow-xs'
                     : 'text-[#6B6E84] hover:text-[#1F1F1F]'
                 }`}
               >
@@ -163,96 +167,133 @@ export const LoginPage = () => {
             </div>
           </div>
 
-          {/* Hidden Scrollbar Form Container */}
-          <div className="flex-1 overflow-y-auto py-4 px-1 space-y-3.5 text-left no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {/* Form Content Area (Borderless Inputs) */}
+          <div className="flex-1 overflow-y-auto py-3 px-1 space-y-3.5 text-left no-scrollbar">
             <form id="auth-form" onSubmit={handleSubmit} className="space-y-3.5">
               
               {authMode === 'register' && (
-                <Input
-                  label="Full Name"
-                  type="text"
-                  icon={User}
-                  pill
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Alex Morgan"
-                  required
-                />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-[#6B6E84] tracking-wider">Full Name</label>
+                  <div className="relative flex items-center">
+                    <User className="w-4 h-4 text-[#4C5BBD] absolute left-4 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Rahul Sharma"
+                      style={{ outline: 'none' }}
+                      className="w-full bg-[#F8FAFE] border-0 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#1F1F1F] focus:bg-white shadow-xs transition-all"
+                    />
+                  </div>
+                </div>
               )}
 
               {portalType === 'doctor' && authMode === 'login' && (
-                <Select
-                  label="Select Doctor Profile"
-                  icon={Stethoscope}
-                  pill
-                  value={selectedDoctorId}
-                  onChange={(e) => setSelectedDoctorId(e.target.value)}
-                  options={MOCK_DOCTORS.map((d) => ({
-                    value: d.id,
-                    label: `${d.name} (${d.specialty})`,
-                  }))}
-                />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-[#6B6E84] tracking-wider">Select Doctor Profile</label>
+                  <div className="relative flex items-center">
+                    <Stethoscope className="w-4 h-4 text-[#4C5BBD] absolute left-4 pointer-events-none" />
+                    <select
+                      value={selectedDoctorId}
+                      onChange={(e) => setSelectedDoctorId(e.target.value)}
+                      style={{ outline: 'none' }}
+                      className="w-full bg-[#F8FAFE] border-0 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#1F1F1F] focus:bg-white shadow-xs transition-all"
+                    >
+                      {MOCK_DOCTORS.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} ({d.specialty})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               )}
 
               {portalType === 'doctor' && authMode === 'register' && (
-                <Input
-                  label="Medical Specialty"
-                  type="text"
-                  icon={Stethoscope}
-                  pill
-                  value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                  placeholder="Cardiology / Pediatrics"
-                  required
-                />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-[#6B6E84] tracking-wider">Medical Specialty</label>
+                  <div className="relative flex items-center">
+                    <Stethoscope className="w-4 h-4 text-[#4C5BBD] absolute left-4 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      value={specialty}
+                      onChange={(e) => setSpecialty(e.target.value)}
+                      placeholder="Cardiology / Pediatrics"
+                      style={{ outline: 'none' }}
+                      className="w-full bg-[#F8FAFE] border-0 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#1F1F1F] focus:bg-white shadow-xs transition-all"
+                    />
+                  </div>
+                </div>
               )}
 
-              <Input
-                label="Email Address"
-                type="email"
-                icon={Mail}
-                pill
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="alex.morgan@healflow.health"
-                required
-              />
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase text-[#6B6E84] tracking-wider">Email Address</label>
+                <div className="relative flex items-center">
+                  <Mail className="w-4 h-4 text-[#4C5BBD] absolute left-4 pointer-events-none" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="rahul.sharma@healflow.in"
+                    style={{ outline: 'none' }}
+                    className="w-full bg-[#F8FAFE] border-0 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#1F1F1F] focus:bg-white shadow-xs transition-all"
+                  />
+                </div>
+              </div>
 
               {authMode === 'register' && (
-                <Input
-                  label="Phone Number"
-                  type="tel"
-                  icon={Phone}
-                  pill
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+1 (555) 234-5678"
-                  required
-                />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-[#6B6E84] tracking-wider">Phone Number</label>
+                  <div className="relative flex items-center">
+                    <Phone className="w-4 h-4 text-[#4C5BBD] absolute left-4 pointer-events-none" />
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      style={{ outline: 'none' }}
+                      className="w-full bg-[#F8FAFE] border-0 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#1F1F1F] focus:bg-white shadow-xs transition-all"
+                    />
+                  </div>
+                </div>
               )}
 
-              <Input
-                label="Password"
-                type="password"
-                icon={Lock}
-                pill
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                required
-              />
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase text-[#6B6E84] tracking-wider">Password</label>
+                <div className="relative flex items-center">
+                  <Lock className="w-4 h-4 text-[#4C5BBD] absolute left-4 pointer-events-none" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    style={{ outline: 'none' }}
+                    className="w-full bg-[#F8FAFE] border-0 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#1F1F1F] focus:bg-white shadow-xs transition-all"
+                  />
+                </div>
+              </div>
 
               {authMode === 'register' && (
-                <Input
-                  label="Confirm Password"
-                  type="password"
-                  icon={Lock}
-                  pill
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  required
-                />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-[#6B6E84] tracking-wider">Confirm Password</label>
+                  <div className="relative flex items-center">
+                    <Lock className="w-4 h-4 text-[#4C5BBD] absolute left-4 pointer-events-none" />
+                    <input
+                      type="password"
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      style={{ outline: 'none' }}
+                      className="w-full bg-[#F8FAFE] border-0 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-[#1F1F1F] focus:bg-white shadow-xs transition-all"
+                    />
+                  </div>
+                </div>
               )}
 
               {authMode === 'login' && (
@@ -261,11 +302,11 @@ export const LoginPage = () => {
                     <input
                       type="checkbox"
                       defaultChecked
-                      className="w-3.5 h-3.5 rounded text-[#5B81FA] accent-[#5B81FA] border-[#CEDEFF]"
+                      className="w-3.5 h-3.5 rounded text-[#4C5BBD] accent-[#4C5BBD] border-0"
                     />
                     <span>Remember me</span>
                   </label>
-                  <a href="#forgot" className="text-[#5B81FA] font-bold hover:underline">
+                  <a href="#forgot" className="text-[#4C5BBD] font-bold hover:underline">
                     Forgot Password?
                   </a>
                 </div>
@@ -273,56 +314,57 @@ export const LoginPage = () => {
             </form>
           </div>
 
-          {/* Fixed Card Bottom: Submit & Quick Demo Buttons */}
-          <div className="shrink-0 pt-3 border-t border-slate-100 space-y-3">
-            <Button
+          {/* Card Bottom: Submit & Fast Demo Access Buttons */}
+          <div className="shrink-0 pt-3 border-0 space-y-3">
+            <button
               form="auth-form"
               type="submit"
-              variant={portalType === 'doctor' ? 'secondary' : 'primary'}
-              size="lg"
-              pill
-              fullWidth
-              isLoading={loading}
-              icon={ArrowRight}
-              iconPosition="right"
-              className="py-3 text-xs font-bold shadow-material-2"
+              disabled={loading}
+              style={{ outline: 'none' }}
+              className={`w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full text-xs font-black shadow-xs transition-all border-0 disabled:opacity-50 ${
+                portalType === 'doctor'
+                  ? 'bg-[#161B33] text-white hover:bg-slate-800'
+                  : 'bg-[#4C5BBD] text-white hover:bg-[#3B489E]'
+              }`}
             >
-              {authMode === 'login'
-                ? `Sign In to ${portalType === 'doctor' ? 'Doctor Portal' : 'Patient Account'}`
-                : `Create ${portalType === 'doctor' ? 'Doctor Portal' : 'Patient'} Account`}
-            </Button>
+              <span>
+                {authMode === 'login'
+                  ? `Sign In to ${portalType === 'doctor' ? 'Doctor Portal' : 'Patient Account'}`
+                  : `Create ${portalType === 'doctor' ? 'Doctor' : 'Patient'} Account`}
+              </span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="soft"
-                size="sm"
-                pill
-                icon={User}
+            {/* Quick Demo Access Pills */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
                 onClick={handleDemoPatient}
-                className="py-1.5 text-[11px] font-bold"
+                style={{ outline: 'none' }}
+                className="flex items-center justify-center gap-2 py-2 px-4 rounded-full bg-[#F2F5FF] text-[#4C5BBD] text-xs font-bold hover:bg-[#4C5BBD] hover:text-white transition-all border-0 shadow-xs"
               >
-                Patient Demo
-              </Button>
+                <User className="w-3.5 h-3.5" />
+                <span>Patient Demo</span>
+              </button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                pill
-                icon={Stethoscope}
+              <button
+                type="button"
                 onClick={handleDemoDoctor}
-                className="py-1.5 text-[11px] font-bold border-[#CEDEFF] text-[#29318A]"
+                style={{ outline: 'none' }}
+                className="flex items-center justify-center gap-2 py-2 px-4 rounded-full bg-[#161B33] text-white text-xs font-bold hover:bg-slate-800 transition-all border-0 shadow-xs"
               >
-                Doctor Demo
-              </Button>
+                <Stethoscope className="w-3.5 h-3.5" />
+                <span>Doctor Demo</span>
+              </button>
             </div>
           </div>
 
         </div>
       </main>
 
-      {/* 3. Fixed Security Footer */}
-      <footer className="shrink-0 text-center text-xs text-[#6B6E84] py-1 flex items-center justify-center gap-1.5">
-        <ShieldCheck className="w-3.5 h-3.5 text-[#5B81FA]" />
+      {/* 3. Security Footer */}
+      <footer className="shrink-0 text-center text-xs text-[#6B6E84] py-1 flex items-center justify-center gap-1.5 font-medium">
+        <ShieldCheck className="w-3.5 h-3.5 text-[#4C5BBD]" />
         <span>256-Bit SSL Encrypted & HIPAA Compliant Data Protection</span>
       </footer>
 

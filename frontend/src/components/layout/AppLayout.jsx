@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { ToastContainer } from '../common/Toast';
+import { ChatbotWidget } from '../chatbot/ChatbotWidget';
 
 export const AppLayout = () => {
   const location = useLocation();
@@ -14,6 +15,7 @@ export const AppLayout = () => {
       <main className="flex-grow">
         <Outlet />
       </main>
+      <ChatbotWidget />
       <ToastContainer />
       {!isAuthPage && <Footer />}
     </div>

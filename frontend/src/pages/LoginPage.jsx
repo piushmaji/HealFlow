@@ -148,14 +148,14 @@ export const LoginPage = () => {
             <h1 className="text-2xl font-black text-[#1F1F1F] font-heading tracking-tight">
               {authMode === 'login'
                 ? isDoctor ? 'Doctor Sign In' : 'Patient Sign In'
-                : isDoctor ? 'Doctor Registration' : 'Create Patient Account'}
+                : isDoctor ? 'Doctor Registration' : 'Patient Portal Sign Up'}
             </h1>
             <p className="text-xs text-[#6B6E84]">
               {authMode === 'login'
                 ? isDoctor
                   ? 'Access OPD sequence, consultation charts & patient calls'
                   : 'Track live OPD tokens, view appointments & clinical records'
-                : 'Join HealFlow to experience seamless queue care'}
+                : 'Hospital-verified access: Sign up is reserved for patients & doctors registered in hospital records.'}
             </p>
           </div>
 

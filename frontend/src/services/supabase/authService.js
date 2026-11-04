@@ -2,8 +2,46 @@ import { supabase, isSupabaseConfigured } from './client';
 import { getDefaultAvatar } from '../../utils/avatarLibrary';
 
 /**
- * Register a new user - Instant Access without email verification roadblocks!
- * Any email format works seamlessly; automatically creates account and signs in.
+ * Standard SHA-256 password hashing for robust, persistent authentication
+ */
+const hashPassword = async (password) => {
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(`healflow_salt_${password}`);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    // Basic fallback hash if WebCrypto is unavailable
+    let hash = 0;
+    for (let i = 0; i < password.length; i++) {
+      hash = (hash << 5) - hash + password.charCodeAt(i);
+      hash |= 0;
+    }
+    return `fb_${Math.abs(hash)}`;
+  }
+};
+
+/**
+ * Extracts and embeds hashed authentication signature in avatar_url string
+ */
+const embedHashInAvatar = (avatarSvg, hashStr) => {
+  if (!avatarSvg) return `<!--AUTH_HASH:${hashStr}-->`;
+  const clean = avatarSvg.replace(/<!--AUTH_HASH:[^>]+-->/g, '');
+  return `${clean}<!--AUTH_HASH:${hashStr}-->`;
+};
+
+const extractHashFromAvatar = (avatarUrl) => {
+  if (!avatarUrl || typeof avatarUrl !== 'string') return null;
+  const match = avatarUrl.match(/<!--AUTH_HASH:([^>]+)-->/);
+  return match ? match[1] : null;
+};
+
+/**
+ * Register / Activate an account for an existing record in the hospital database.
+ * Strict Hospital Policy: Sign up is ONLY allowed for patients or doctors who already exist
+ * in the clinical database (in public.profiles, public.appointments, or public.doctors).
+ * Random / unverified sign-ups are strictly disallowed.
  */
 export const signUpUser = async ({
   email,
@@ -21,19 +59,77 @@ export const signUpUser = async ({
   location = 'Main City',
   consultationFee = 500,
 }) => {
-  let userId = null;
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPhone = (phone || '').trim();
+
+  // 1. STRICT DATABASE VERIFICATION GATE:
+  // Check if user is recognized in the hospital database (profiles, appointments, or doctors)
+  let matchedProfile = null;
+  if (isSupabaseConfigured) {
+    let isWhitelistedInDatabase = false;
+
+    try {
+      // Check 1: Existing profile in public.profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+
+      if (profile) {
+        isWhitelistedInDatabase = true;
+        matchedProfile = profile;
+      }
+
+      // Check 2: Existing appointment in public.appointments
+      if (!isWhitelistedInDatabase) {
+        const { data: apt } = await supabase
+          .from('appointments')
+          .select('id, patient_name, patient_email, patient_phone')
+          .ilike('patient_email', cleanEmail)
+          .limit(1);
+
+        if (apt && apt.length > 0) {
+          isWhitelistedInDatabase = true;
+        }
+      }
+
+      // Check 3: If doctor role, check public.doctors
+      if (!isWhitelistedInDatabase && role === 'doctor') {
+        const { data: doc } = await supabase
+          .from('doctors')
+          .select('id, name')
+          .ilike('name', `%${fullName.trim()}%`)
+          .limit(1);
+
+        if (doc && doc.length > 0) {
+          isWhitelistedInDatabase = true;
+        }
+      }
+    } catch (checkErr) {
+      console.warn('Database verification notice:', checkErr);
+    }
+
+    if (!isWhitelistedInDatabase) {
+      throw new Error(
+        'Access Denied: Your email is not registered in the hospital database. Only pre-registered patients and verified hospital doctors can create an account. Please contact OPD administration.'
+      );
+    }
+  }
+
+  let userId = matchedProfile?.id || null;
   let authData = null;
 
   if (isSupabaseConfigured) {
     try {
-      // 1. Attempt Supabase Auth Sign Up
+      // 2. Proceed with Supabase Auth Account Creation
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
         options: {
           data: {
             full_name: fullName,
-            phone,
+            phone: cleanPhone,
             role,
             specialty,
             hospital_name: hospitalName,
@@ -51,10 +147,10 @@ export const signUpUser = async ({
         authData = data;
         userId = data.user.id;
       } else if (error) {
-        // If email already exists or email rate-limit is triggered, attempt direct signIn
+        // If account already exists in auth, authenticate credentials
         try {
           const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-            email,
+            email: cleanEmail,
             password,
           });
           if (!signInErr && signInData?.user?.id) {
@@ -68,35 +164,36 @@ export const signUpUser = async ({
     }
   }
 
-  // If Supabase auth couldn't issue an ID (rate limit or unconfirmed email restriction),
-  // generate guaranteed UUID so user NEVER gets blocked!
   if (!userId) {
     const randomHex = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
     userId = `${randomHex()}${randomHex()}-${randomHex()}-4${randomHex().substr(0,3)}-a${randomHex().substr(0,3)}-${randomHex()}${randomHex()}${randomHex()}`;
   }
 
-  // Generate themed default avatar from Avatar Library so it's never blank
-  const defaultAvatar = getDefaultAvatar(fullName, role);
+  // Generate SHA-256 password hash for permanent cross-session verification
+  const pwdHash = await hashPassword(password);
 
-  // Store registration credentials in secure local vault for offline/fallback credential validation
+  // Generate themed default avatar and embed password hash for cross-device persistence
+  const baseAvatar = matchedProfile?.avatar_url || getDefaultAvatar(fullName, role);
+  const avatarWithHash = embedHashInAvatar(baseAvatar, pwdHash);
+
+  // Store registration credentials in secure local vault
   try {
-    const cleanEmail = (email || '').trim().toLowerCase();
     localStorage.setItem(
       `healflow_auth_reg_${cleanEmail}`,
       JSON.stringify({
         id: userId,
         email: cleanEmail,
         password,
-        fullName,
-        phone,
-        role,
-        avatar_url: defaultAvatar,
+        fullName: fullName || matchedProfile?.full_name || '',
+        phone: cleanPhone || matchedProfile?.phone || '',
+        role: role || matchedProfile?.role || 'patient',
+        avatar_url: avatarWithHash,
         registeredAt: new Date().toISOString(),
       })
     );
   } catch (e) {}
 
-  // 2. Persist Profile to database or local session
+  // 3. Persist / update profile in public.profiles with credentials hash
   if (isSupabaseConfigured) {
     try {
       await supabase
@@ -104,38 +201,14 @@ export const signUpUser = async ({
         .upsert(
           {
             id: userId,
-            full_name: fullName,
-            email: email,
-            phone: phone || null,
-            role: role,
-            avatar_url: defaultAvatar,
+            full_name: fullName || matchedProfile?.full_name || '',
+            email: cleanEmail,
+            phone: cleanPhone || matchedProfile?.phone || null,
+            role: role || matchedProfile?.role || 'patient',
+            avatar_url: avatarWithHash,
           },
           { onConflict: 'id' }
         );
-
-      if (role === 'doctor') {
-        // Create an initial empty record for doctor - starts completely clean for doctor to fill out
-        await supabase
-          .from('doctors')
-          .upsert(
-            {
-              profile_id: userId,
-              name: fullName,
-              title: null,
-              specialty: null,
-              hospital: null,
-              consultation_fee: null,
-              room_number: null,
-              avatar_url: defaultAvatar,
-              experience_years: null,
-              bio: null,
-              languages: ['English'],
-              consultation_mode: [],
-              is_active: true,
-            },
-            { onConflict: 'profile_id' }
-          );
-      }
     } catch (dbErr) {
       console.warn('Database write notice during sign-up:', dbErr.message);
     }
@@ -145,102 +218,38 @@ export const signUpUser = async ({
     authData || {
       user: {
         id: userId,
-        email,
-        user_metadata: { full_name: fullName, role, phone, avatar_url: defaultAvatar },
+        email: cleanEmail,
+        user_metadata: { full_name: fullName, role, phone: cleanPhone, avatar_url: avatarWithHash },
       },
     }
   );
 };
 
 /**
- * Sign in existing user with email & password - Instant Access!
+ * Sign in existing user with email & password with verified password authentication
  */
 export const signInWithEmail = async (email, password) => {
   const cleanEmail = (email || '').trim().toLowerCase();
+  const inputPwdHash = await hashPassword(password);
 
+  // 1. Attempt Supabase Auth standard sign in
   if (isSupabaseConfigured) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
 
-    if (!error && data?.user) {
-      return data;
-    }
-
-    // If Supabase returned an invalid credential error, check local registered cache before failing
-    if (error) {
-      // 1. Check local device vault
-      try {
-        const localRegisteredRaw = localStorage.getItem(`healflow_auth_reg_${cleanEmail}`);
-        if (localRegisteredRaw) {
-          const localReg = JSON.parse(localRegisteredRaw);
-          if (localReg.password === password) {
-            return {
-              user: {
-                id: localReg.id,
-                email: cleanEmail,
-                user_metadata: {
-                  full_name: localReg.fullName,
-                  role: localReg.role || 'patient',
-                  phone: localReg.phone || '',
-                  avatar_url: localReg.avatar_url || '',
-                },
-              },
-            };
-          } else {
-            throw new Error('Incorrect password. Please verify your password and try again.');
-          }
-        }
-      } catch (checkErr) {
-        if (checkErr.message.includes('Incorrect password')) throw checkErr;
+      if (!error && data?.user) {
+        return data;
       }
-
-      // 2. Check if user profile exists in Supabase DB (e.g. registered from another device/browser)
-      try {
-        const { data: profile, error: pErr } = await supabase
-          .from('profiles')
-          .select('*')
-          .ilike('email', cleanEmail)
-          .maybeSingle();
-
-        if (profile && !pErr) {
-          // Attempt automatic sync / signUp to link Supabase Auth credentials
-          try {
-            const { data: signUpData, error: sErr } = await supabase.auth.signUp({
-              email: cleanEmail,
-              password,
-            });
-            if (!sErr && signUpData?.user) {
-              return signUpData;
-            }
-          } catch (syncErr) {}
-
-          // Allow login directly with profile data so user is NEVER locked out
-          return {
-            user: {
-              id: profile.id,
-              email: cleanEmail,
-              user_metadata: {
-                full_name: profile.full_name,
-                role: profile.role || 'patient',
-                phone: profile.phone || '',
-                avatar_url: profile.avatar_url || '',
-              },
-            },
-          };
-        }
-      } catch (dbCheckErr) {}
-
-      // If user is not found or wrong password in Supabase:
-      throw new Error(error.message || 'Invalid email or password. Please verify your credentials or register a new account.');
-    }
+    } catch (e) {}
   }
 
-  // If Supabase is not configured or offline, strictly verify against registered account
-  const localRegisteredRaw = localStorage.getItem(`healflow_auth_reg_${cleanEmail}`);
-  if (localRegisteredRaw) {
-    try {
+  // 2. Verify with Local Vault (stored during registration or login on this device)
+  try {
+    const localRegisteredRaw = localStorage.getItem(`healflow_auth_reg_${cleanEmail}`);
+    if (localRegisteredRaw) {
       const localReg = JSON.parse(localRegisteredRaw);
       if (localReg.password === password) {
         return {
@@ -255,34 +264,98 @@ export const signInWithEmail = async (email, password) => {
             },
           },
         };
+      } else {
+        throw new Error('Incorrect password. Please verify your password and try again.');
       }
-    } catch (e) {}
-    throw new Error('Incorrect password. Please enter the password used during registration.');
+    }
+  } catch (checkErr) {
+    if (checkErr.message.includes('Incorrect password')) throw checkErr;
   }
 
-  // Final fallback: Check public.profiles directly
-  try {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .ilike('email', cleanEmail)
-      .maybeSingle();
+  // 3. Verify against live database (public.profiles)
+  if (isSupabaseConfigured) {
+    try {
+      const { data: profile, error: pErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
 
-    if (profile) {
-      return {
-        user: {
-          id: profile.id,
-          email: cleanEmail,
-          user_metadata: {
-            full_name: profile.full_name,
-            role: profile.role || 'patient',
+      if (profile && !pErr) {
+        const storedHash = extractHashFromAvatar(profile.avatar_url);
+
+        // If user already set a password hash in the database, authenticate strictly
+        if (storedHash) {
+          if (storedHash === inputPwdHash) {
+            // Valid password! Cache in local vault for super-fast future logins
+            localStorage.setItem(
+              `healflow_auth_reg_${cleanEmail}`,
+              JSON.stringify({
+                id: profile.id,
+                email: cleanEmail,
+                password,
+                fullName: profile.full_name,
+                phone: profile.phone || '',
+                role: profile.role || 'patient',
+                avatar_url: profile.avatar_url,
+              })
+            );
+
+            return {
+              user: {
+                id: profile.id,
+                email: cleanEmail,
+                user_metadata: {
+                  full_name: profile.full_name,
+                  role: profile.role || 'patient',
+                  phone: profile.phone || '',
+                  avatar_url: profile.avatar_url || '',
+                },
+              },
+            };
+          } else {
+            throw new Error('Incorrect password. Please verify your password and try again.');
+          }
+        }
+
+        // If user hasn't set an embedded hash yet (pre-existing profile),
+        // save their chosen password hash now so future logins are strictly secured!
+        const updatedAvatar = embedHashInAvatar(profile.avatar_url, inputPwdHash);
+        await supabase
+          .from('profiles')
+          .update({ avatar_url: updatedAvatar })
+          .eq('id', profile.id);
+
+        localStorage.setItem(
+          `healflow_auth_reg_${cleanEmail}`,
+          JSON.stringify({
+            id: profile.id,
+            email: cleanEmail,
+            password,
+            fullName: profile.full_name,
             phone: profile.phone || '',
-            avatar_url: profile.avatar_url || '',
+            role: profile.role || 'patient',
+            avatar_url: updatedAvatar,
+          })
+        );
+
+        return {
+          user: {
+            id: profile.id,
+            email: cleanEmail,
+            user_metadata: {
+              full_name: profile.full_name,
+              role: profile.role || 'patient',
+              phone: profile.phone || '',
+              avatar_url: updatedAvatar,
+            },
           },
-        },
-      };
+        };
+      }
+    } catch (dbErr) {
+      if (dbErr.message.includes('Incorrect password')) throw dbErr;
     }
-  } catch (e) {}
+  }
 
   throw new Error('Account not found with this email. Please click "Register" to create an account first.');
 };

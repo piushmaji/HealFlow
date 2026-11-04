@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { Calendar, Clock, MapPin, Ticket, ArrowRight, User } from 'lucide-react';
+import { Calendar, Clock, MapPin, Ticket, ArrowRight, User, CheckCircle2 } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 import { useQueue } from '../../context/QueueContext';
 

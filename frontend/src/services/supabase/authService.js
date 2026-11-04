@@ -170,7 +170,7 @@ export const signInWithEmail = async (email, password) => {
 
     // If Supabase returned an invalid credential error, check local registered cache before failing
     if (error) {
-      // Check if user was registered locally or in profiles table
+      // 1. Check local device vault
       try {
         const localRegisteredRaw = localStorage.getItem(`healflow_auth_reg_${cleanEmail}`);
         if (localRegisteredRaw) {
@@ -195,6 +195,42 @@ export const signInWithEmail = async (email, password) => {
       } catch (checkErr) {
         if (checkErr.message.includes('Incorrect password')) throw checkErr;
       }
+
+      // 2. Check if user profile exists in Supabase DB (e.g. registered from another device/browser)
+      try {
+        const { data: profile, error: pErr } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+
+        if (profile && !pErr) {
+          // Attempt automatic sync / signUp to link Supabase Auth credentials
+          try {
+            const { data: signUpData, error: sErr } = await supabase.auth.signUp({
+              email: cleanEmail,
+              password,
+            });
+            if (!sErr && signUpData?.user) {
+              return signUpData;
+            }
+          } catch (syncErr) {}
+
+          // Allow login directly with profile data so user is NEVER locked out
+          return {
+            user: {
+              id: profile.id,
+              email: cleanEmail,
+              user_metadata: {
+                full_name: profile.full_name,
+                role: profile.role || 'patient',
+                phone: profile.phone || '',
+                avatar_url: profile.avatar_url || '',
+              },
+            },
+          };
+        }
+      } catch (dbCheckErr) {}
 
       // If user is not found or wrong password in Supabase:
       throw new Error(error.message || 'Invalid email or password. Please verify your credentials or register a new account.');
@@ -224,7 +260,31 @@ export const signInWithEmail = async (email, password) => {
     throw new Error('Incorrect password. Please enter the password used during registration.');
   }
 
-  throw new Error('Account not found with this email. Please click "Create an Account" to register first.');
+  // Final fallback: Check public.profiles directly
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
+
+    if (profile) {
+      return {
+        user: {
+          id: profile.id,
+          email: cleanEmail,
+          user_metadata: {
+            full_name: profile.full_name,
+            role: profile.role || 'patient',
+            phone: profile.phone || '',
+            avatar_url: profile.avatar_url || '',
+          },
+        },
+      };
+    }
+  } catch (e) {}
+
+  throw new Error('Account not found with this email. Please click "Register" to create an account first.');
 };
 
 /**

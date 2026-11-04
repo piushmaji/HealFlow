@@ -20,8 +20,16 @@ export const AppointmentCard = ({ appointment }) => {
       ? appointment.doctor_avatar
       : 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400';
 
+  const isCompleted = appointment.status === 'Completed';
+
   return (
-    <div className="bg-[#F8FAFE] hover:bg-[#F2F5FF] rounded-3xl p-4 sm:p-5 border-0 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 transition-all duration-200 font-sans group">
+    <div
+      className={`rounded-3xl p-4 sm:p-5 border-0 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 transition-all duration-200 font-sans group ${
+        isCompleted
+          ? 'bg-slate-50/70 opacity-60 filter grayscale-[30%]'
+          : 'bg-[#F8FAFE] hover:bg-[#F2F5FF]'
+      }`}
+    >
       
       {/* 1. Left Section: Avatar, Doctor Info, Token & Status */}
       <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -36,15 +44,23 @@ export const AppointmentCard = ({ appointment }) => {
 
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 text-[10px] font-black font-sans bg-[#F2F5FF] text-[#4C5BBD] rounded-lg border-0 shadow-xs flex items-center gap-1">
-              <Ticket className="w-3 h-3 text-[#4C5BBD]" />
+            <span
+              className={`px-2.5 py-0.5 text-[10px] font-black font-sans rounded-lg border-0 shadow-xs flex items-center gap-1 ${
+                isCompleted ? 'bg-slate-200 text-slate-500' : 'bg-[#F2F5FF] text-[#4C5BBD]'
+              }`}
+            >
+              <Ticket className="w-3 h-3" />
               <span>{appointment.token_number}</span>
             </span>
 
             <StatusBadge status={appointment.status} />
           </div>
 
-          <h4 className="text-sm sm:text-base font-black text-[#1F1F1F] font-sans truncate">
+          <h4
+            className={`text-sm sm:text-base font-black font-sans truncate ${
+              isCompleted ? 'text-slate-500 line-through' : 'text-[#1F1F1F]'
+            }`}
+          >
             {appointment.doctor_name}
           </h4>
 
@@ -57,8 +73,8 @@ export const AppointmentCard = ({ appointment }) => {
         </div>
       </div>
 
-      {/* 2. Middle Section: Scheduled Date & Time Telemetry Pill (Soft White Contrast) */}
-      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 px-3.5 py-2 sm:py-2.5 bg-white sm:bg-white rounded-2xl sm:rounded-2xl shadow-xs shrink-0 border-0">
+      {/* 2. Middle Section: Scheduled Date & Time Telemetry Pill */}
+      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 px-3.5 py-2 sm:py-2.5 bg-white rounded-2xl shadow-xs shrink-0 border-0">
         <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F1F1F]">
           <Calendar className="w-3.5 h-3.5 text-[#6B6E84]" />
           <span>{formatDate(appointment.date)}</span>
@@ -66,25 +82,32 @@ export const AppointmentCard = ({ appointment }) => {
 
         <div className="flex items-center gap-1 text-xs font-black text-[#4C5BBD]">
           <Clock className="w-3.5 h-3.5 text-[#4C5BBD]" />
-          <span>{appointment.time}</span>
+          <span>{appointment.time} (IST)</span>
         </div>
       </div>
 
-      {/* 3. Right Section: Direct Track Queue Action Pill Button */}
+      {/* 3. Right Section: Action Button */}
       <div className="shrink-0">
-        <button
-          type="button"
-          onClick={handleTrackQueue}
-          style={{ outline: 'none' }}
-          className={`w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 px-5 rounded-full text-xs font-black transition-all shadow-xs border-0 ${
-            appointment.status === 'Scheduled'
-              ? 'bg-[#4C5BBD] text-white hover:bg-[#3B489E]'
-              : 'bg-white text-[#1F1F1F] hover:bg-[#F2F5FF]'
-          }`}
-        >
-          <span>{appointment.status === 'Scheduled' ? 'Track Live Queue' : 'View Details'}</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+        {isCompleted ? (
+          <span className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-full text-xs font-bold bg-slate-200/80 text-slate-600 shadow-2xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+            <span>Consultation Finished</span>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={handleTrackQueue}
+            style={{ outline: 'none' }}
+            className={`w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 px-5 rounded-full text-xs font-black transition-all shadow-xs border-0 cursor-pointer ${
+              appointment.status === 'Scheduled' || appointment.status === 'In Session'
+                ? 'bg-[#4C5BBD] text-white hover:bg-[#3B489E]'
+                : 'bg-white text-[#1F1F1F] hover:bg-[#F2F5FF]'
+            }`}
+          >
+            <span>{appointment.status === 'In Session' ? 'Enter Chamber' : 'Track Live Queue'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
     </div>

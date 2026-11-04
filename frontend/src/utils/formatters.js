@@ -35,6 +35,66 @@ export const calculateEstimatedWaitTime = (patientsAhead, avgConsultationMinutes
 };
 
 /**
+ * Indian Standard Time (IST) Slot Validation Utilities
+ */
+export const parseSlotTimeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return 0;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+  if (period === 'PM' && hours < 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+};
+
+export const getISTNow = () => {
+  const now = new Date();
+  const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(now);
+  let hour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+  if (hour === 24) hour = 0;
+  const minute = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
+  return { dateStr, minutesNow: hour * 60 + minute, hour, minute };
+};
+
+/**
+ * Check if an appointment slot is currently active or upcoming in IST
+ * Allows entry starting 10 minutes before slot time through the day
+ */
+export const isSlotActiveNowIST = (slotDate, slotTime) => {
+  if (!slotTime) return true; // If no slot specified, open by default
+  const { dateStr, minutesNow } = getISTNow();
+
+  // If date is in the future
+  if (slotDate && slotDate > dateStr) {
+    return { isActive: false, reason: 'Future Date', message: `Scheduled for ${slotDate} at ${slotTime} (IST).` };
+  }
+
+  // If date is today, check time slot
+  if (!slotDate || slotDate === dateStr) {
+    const slotMinutes = parseSlotTimeToMinutes(slotTime);
+    // Allow entry starting 10 mins before slot
+    if (minutesNow < slotMinutes - 10) {
+      const waitMins = slotMinutes - minutesNow;
+      return {
+        isActive: false,
+        reason: 'Too Early',
+        message: `OPD Queue unlocks at ${slotTime} IST (~${waitMins} mins remaining).`,
+      };
+    }
+  }
+
+  return { isActive: true, reason: 'Active', message: 'Slot Active' };
+};
+
+/**
  * Format address object or string into a clean readable string
  * Supports JSON object { street, city, district, state, pincode }
  */

@@ -429,7 +429,7 @@ export const sendConsultationMessage = async (req, res, next) => {
 const activeCallSessions = new Map();
 
 /**
- * 8. GET & UPDATE REAL-TIME CALL SIGNALING / PRESENCE
+ * 8. GET & UPDATE REAL-TIME CALL SIGNALING / WEBRTC PEER CONNECTION
  */
 export const getCallSignal = async (req, res, next) => {
   try {
@@ -439,6 +439,9 @@ export const getCallSignal = async (req, res, next) => {
       callType: null,   // 'audio' | 'video'
       caller: null,     // { role: 'doctor'|'patient', name: string }
       participants: {}, // { doctor: true, patient: true }
+      offers: {},       // { doctor: sdpOffer, patient: sdpOffer }
+      answers: {},      // { doctor: sdpAnswer, patient: sdpAnswer }
+      iceCandidates: { doctor: [], patient: [] },
       updatedAt: Date.now(),
     };
     res.json({ success: true, data: sessionData });
@@ -450,15 +453,16 @@ export const getCallSignal = async (req, res, next) => {
 export const updateCallSignal = async (req, res, next) => {
   try {
     const { appointmentId } = req.params;
-    const { action, callType, senderRole, senderName, sdp, ice } = req.body;
+    const { action, callType, senderRole, senderName, offer, answer, candidate } = req.body;
 
     let current = activeCallSessions.get(appointmentId) || {
       callState: 'IDLE',
       callType: null,
       caller: null,
       participants: {},
-      sdp: null,
-      ice: [],
+      offers: {},
+      answers: {},
+      iceCandidates: { doctor: [], patient: [] },
       updatedAt: Date.now(),
     };
 
@@ -468,14 +472,33 @@ export const updateCallSignal = async (req, res, next) => {
         callType: callType || 'video',
         caller: { role: senderRole, name: senderName },
         participants: { [senderRole]: true },
-        sdp: sdp || null,
-        ice: ice ? [ice] : [],
+        offers: offer && senderRole ? { [senderRole]: offer } : {},
+        answers: {},
+        iceCandidates: { doctor: [], patient: [] },
         updatedAt: Date.now(),
       };
+    } else if (action === 'OFFER') {
+      if (!current.offers) current.offers = {};
+      current.offers[senderRole] = offer;
+      current.updatedAt = Date.now();
     } else if (action === 'ACCEPT_CALL') {
       current.callState = 'CONNECTED';
       current.participants[senderRole] = true;
-      if (sdp) current.sdp = sdp;
+      if (answer && senderRole) {
+        if (!current.answers) current.answers = {};
+        current.answers[senderRole] = answer;
+      }
+      current.updatedAt = Date.now();
+    } else if (action === 'ANSWER') {
+      if (!current.answers) current.answers = {};
+      current.answers[senderRole] = answer;
+      current.updatedAt = Date.now();
+    } else if (action === 'ICE_CANDIDATE') {
+      if (!current.iceCandidates) current.iceCandidates = { doctor: [], patient: [] };
+      if (senderRole && candidate) {
+        if (!current.iceCandidates[senderRole]) current.iceCandidates[senderRole] = [];
+        current.iceCandidates[senderRole].push(candidate);
+      }
       current.updatedAt = Date.now();
     } else if (action === 'END_CALL') {
       current = {
@@ -483,8 +506,9 @@ export const updateCallSignal = async (req, res, next) => {
         callType: null,
         caller: null,
         participants: {},
-        sdp: null,
-        ice: [],
+        offers: {},
+        answers: {},
+        iceCandidates: { doctor: [], patient: [] },
         updatedAt: Date.now(),
       };
     } else if (action === 'HEARTBEAT') {

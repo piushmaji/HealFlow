@@ -11,6 +11,7 @@ import {
   updateCallSignalInBackend,
 } from '../services/doctorBackendService';
 import { supabase, isSupabaseConfigured } from '../services/supabase/client';
+import { isSlotActiveNowIST } from '../utils/formatters';
 import {
   MessageSquare,
   Send,
@@ -73,20 +74,91 @@ export const DoctorConsultationChatPage = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const mediaStreamRef = useRef(null);
+  const pcRef = useRef(null); // Native RTCPeerConnection instance
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [isPeerConnected, setIsPeerConnected] = useState(false);
 
-  // Attach local media stream to video element whenever video call is active
+  // WebRTC ICE Servers (STUN)
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+    ],
+  };
+
+  // Helper to initialize RTCPeerConnection
+  const initPeerConnection = (stream) => {
+    if (pcRef.current) {
+      try {
+        pcRef.current.close();
+      } catch (e) {}
+    }
+
+    const pc = new RTCPeerConnection(rtcConfig);
+    pcRef.current = pc;
+
+    // Add local tracks to peer connection
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+    }
+
+    // Listen for remote tracks
+    pc.ontrack = (event) => {
+      console.log('Received remote track from peer:', event.streams[0]);
+      if (event.streams && event.streams[0]) {
+        setRemoteStream(event.streams[0]);
+        setIsPeerConnected(true);
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+          remoteVideoRef.current.play().catch(() => {});
+        }
+      }
+    };
+
+    // Send local ICE candidates to backend
+    pc.onicecandidate = (event) => {
+      if (event.candidate && appointmentId) {
+        updateCallSignalInBackend(appointmentId, {
+          action: 'ICE_CANDIDATE',
+          senderRole: myRole,
+          candidate: event.candidate,
+        }).catch(() => {});
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log('WebRTC Connection state:', pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        setIsPeerConnected(true);
+      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        setIsPeerConnected(false);
+      }
+    };
+
+    return pc;
+  };
+
+  // Attach streams to video elements
   useEffect(() => {
-    if (isVideoCallActive && mediaStreamRef.current) {
-      if (localVideoRef.current) {
+    if (isVideoCallActive) {
+      if (localVideoRef.current && mediaStreamRef.current) {
         localVideoRef.current.srcObject = mediaStreamRef.current;
         localVideoRef.current.play().catch(() => {});
       }
       if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = mediaStreamRef.current;
-        remoteVideoRef.current.play().catch(() => {});
+        if (remoteStream) {
+          remoteVideoRef.current.srcObject = remoteStream;
+          remoteVideoRef.current.play().catch(() => {});
+        } else {
+          // If remote peer hasn't connected stream yet, don't show self in the main viewport!
+          remoteVideoRef.current.srcObject = null;
+        }
       }
     }
-  }, [isVideoCallActive]);
+  }, [isVideoCallActive, remoteStream]);
   const [currentAppointment, setCurrentAppointment] = useState(() => {
     return appointments.find((a) => a.id === appointmentId) || null;
   });
@@ -285,7 +357,9 @@ export const DoctorConsultationChatPage = () => {
     }
   }, [messages.length]);
 
-  // Real-Time Call Presence & Signaling Poller (Every 1.5s)
+  // Real-Time Call Presence & WebRTC Signaling Poller (Every 1.2s)
+  const appliedCandidatesRef = useRef(new Set());
+
   useEffect(() => {
     if (!appointmentId) return;
 
@@ -305,7 +379,7 @@ export const DoctorConsultationChatPage = () => {
             });
           }
         }
-        // 2. Call was accepted by the other side
+        // 2. Call was accepted / in progress
         else if (signal.callState === 'CONNECTED') {
           setIncomingCall(null);
           if (signal.callType === 'video' && !isVideoCallActive) {
@@ -314,6 +388,34 @@ export const DoctorConsultationChatPage = () => {
           } else if (signal.callType === 'audio' && !isVoiceCallActive) {
             setIsVoiceCallActive(true);
             setIsVideoCallActive(false);
+          }
+
+          const otherRole = myRole === 'doctor' ? 'patient' : 'doctor';
+
+          // WebRTC Negotiation: If we have an active RTCPeerConnection
+          if (pcRef.current) {
+            // If other side provided an Answer to our Offer
+            if (signal.answers && signal.answers[otherRole]) {
+              if (pcRef.current.signalingState === 'have-local-offer') {
+                const answerDesc = new RTCSessionDescription(signal.answers[otherRole]);
+                await pcRef.current.setRemoteDescription(answerDesc).catch((e) => console.warn('setRemoteDescription answer err:', e));
+              }
+            }
+
+            // If other side sent ICE candidates, add them
+            if (signal.iceCandidates && signal.iceCandidates[otherRole]) {
+              for (const cand of signal.iceCandidates[otherRole]) {
+                const candKey = JSON.stringify(cand);
+                if (!appliedCandidatesRef.current.has(candKey)) {
+                  appliedCandidatesRef.current.add(candKey);
+                  try {
+                    await pcRef.current.addIceCandidate(new RTCIceCandidate(cand));
+                  } catch (e) {
+                    console.warn('addIceCandidate err:', e);
+                  }
+                }
+              }
+            }
           }
         }
         // 3. Call was ended / idle
@@ -329,26 +431,28 @@ export const DoctorConsultationChatPage = () => {
       } catch (err) {}
     };
 
-    const interval = setInterval(pollSignal, 1500);
+    const interval = setInterval(pollSignal, 1200);
     return () => {
       isSubscribed = false;
       clearInterval(interval);
     };
   }, [appointmentId, myRole, isVoiceCallActive, isVideoCallActive]);
 
-  // Attach local media stream to video element whenever video call is active
-  useEffect(() => {
-    if (isVideoCallActive && localVideoRef.current && mediaStreamRef.current) {
-      localVideoRef.current.srcObject = mediaStreamRef.current;
-    }
-  }, [isVideoCallActive]);
-
-  // Stop local hardware devices
+  // Stop local hardware devices and close RTCPeerConnection
   const handleCleanUpMedia = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
     }
+    if (pcRef.current) {
+      try {
+        pcRef.current.close();
+      } catch (e) {}
+      pcRef.current = null;
+    }
+    appliedCandidatesRef.current.clear();
+    setRemoteStream(null);
+    setIsPeerConnected(false);
   };
 
   // Launch Call (Audio or Video)
@@ -371,10 +475,6 @@ export const DoctorConsultationChatPage = () => {
           localVideoRef.current.srcObject = stream;
           localVideoRef.current.play().catch(() => {});
         }
-        if (remoteVideoRef.current && type === 'video') {
-          remoteVideoRef.current.srcObject = stream;
-          remoteVideoRef.current.play().catch(() => {});
-        }
       }
     } catch (err) {
       console.warn('Microphone/Camera permission notice:', err.message);
@@ -388,12 +488,24 @@ export const DoctorConsultationChatPage = () => {
       setIsVideoCallActive(false);
     }
 
+    // Initialize WebRTC Peer Connection and create Offer
+    let localOffer = null;
+    try {
+      const pc = initPeerConnection(stream);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      localOffer = offer;
+    } catch (rtcErr) {
+      console.warn('WebRTC offer error:', rtcErr);
+    }
+
     // Broadcast call signal to backend
     await updateCallSignalInBackend(appointmentId, {
       action: 'START_CALL',
       callType: type,
       senderRole: myRole,
       senderName: myName,
+      offer: localOffer,
     });
 
     showToast(`Calling ${isDoctor ? appointment?.patient_name || 'Patient' : appointment?.doctor_name}...`, 'info');
@@ -416,10 +528,6 @@ export const DoctorConsultationChatPage = () => {
           localVideoRef.current.srcObject = stream;
           localVideoRef.current.play().catch(() => {});
         }
-        if (remoteVideoRef.current && callType === 'video') {
-          remoteVideoRef.current.srcObject = stream;
-          remoteVideoRef.current.play().catch(() => {});
-        }
       }
     } catch (err) {
       console.warn('Media hardware access error:', err.message);
@@ -433,10 +541,29 @@ export const DoctorConsultationChatPage = () => {
       setIsVideoCallActive(false);
     }
 
+    // WebRTC: Check for Caller Offer and reply with Answer
+    let localAnswer = null;
+    try {
+      const signal = await getCallSignalFromBackend(appointmentId);
+      const otherRole = myRole === 'doctor' ? 'patient' : 'doctor';
+      const remoteOffer = signal?.offers?.[otherRole];
+
+      const pc = initPeerConnection(stream);
+      if (remoteOffer) {
+        await pc.setRemoteDescription(new RTCSessionDescription(remoteOffer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        localAnswer = answer;
+      }
+    } catch (rtcErr) {
+      console.warn('WebRTC accept/answer error:', rtcErr);
+    }
+
     await updateCallSignalInBackend(appointmentId, {
       action: 'ACCEPT_CALL',
       senderRole: myRole,
       senderName: myName,
+      answer: localAnswer,
     });
 
     showToast('Call connected! Camera & Mic Active.', 'success');
@@ -555,7 +682,39 @@ export const DoctorConsultationChatPage = () => {
     );
   }
 
-  // 2. STRICT ADMISSION GUARD: Patient cannot enter until doctor is ready or has accepted
+  // 2. STRICT IST TIME SLOT GUARD: Session ONLY unlocks at Indian Standard Time
+  const istSlotCheck = isSlotActiveNowIST(appointment.date || appointment.slot_date, appointment.time || appointment.slot_time);
+  if (!istSlotCheck.isActive) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center font-sans space-y-5 animate-fade-in">
+        <div className="w-20 h-20 rounded-full bg-[#F2F5FF] text-[#4C5BBD] flex items-center justify-center mx-auto shadow-xs border border-slate-200">
+          <Clock className="w-10 h-10 animate-pulse text-[#4C5BBD]" />
+        </div>
+        <div className="space-y-2">
+          <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-[#F2F5FF] text-[#4C5BBD] border border-slate-200">
+            IST Time Slot Locked
+          </span>
+          <h2 className="text-2xl font-black text-[#1F1F1F] font-heading">
+            Chamber Opens at Scheduled IST Time
+          </h2>
+          <p className="text-xs text-[#6B6E84] leading-relaxed max-w-md mx-auto">
+            {istSlotCheck.message} Doctor chamber session and OPD queue token (<strong>{appointment.token_number}</strong>) will automatically activate at your scheduled slot.
+          </p>
+        </div>
+        <div className="pt-2 flex items-center justify-center gap-3">
+          <button
+            onClick={() => navigate(isDoctor ? '/live-queue' : `/patients/live-queue/${appointment.id}`)}
+            style={{ outline: 'none' }}
+            className="px-6 py-3 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-black shadow-xs transition-all border-0 cursor-pointer"
+          >
+            {isDoctor ? 'Back to Doctor OPD Queue' : 'Track Queue Position'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. STRICT ADMISSION GUARD: Patient cannot enter until doctor is ready or has accepted
   if (!isDoctor && appointment.status !== 'In Session') {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center font-sans space-y-5 animate-fade-in">
@@ -1198,8 +1357,8 @@ export const DoctorConsultationChatPage = () => {
 
               {/* Video Screen Viewport */}
               <div className="relative w-full h-88 rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center border border-white/10">
-                {/* Active Live Video Stream */}
-                {!isVideoOff ? (
+                {/* Active Remote Live Video Stream */}
+                {remoteStream ? (
                   <video
                     ref={remoteVideoRef}
                     autoPlay
@@ -1207,12 +1366,16 @@ export const DoctorConsultationChatPage = () => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="text-center space-y-2 p-6">
-                    <div className="w-20 h-20 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto shadow-inner">
-                      <Camera className="w-10 h-10 text-slate-500" />
+                  <div className="text-center space-y-3 p-6 animate-pulse">
+                    <div className="w-20 h-20 rounded-full bg-slate-800/90 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+                      <Camera className="w-10 h-10 animate-bounce" />
                     </div>
-                    <p className="text-sm font-bold text-white">Camera is turned off</p>
-                    <p className="text-xs text-slate-400">Click camera button below to turn video on</p>
+                    <p className="text-sm font-bold text-white">
+                      Connecting live camera with {isDoctor ? appointment.patient_name || 'Patient' : appointment.doctor_name}...
+                    </p>
+                    <p className="text-xs text-emerald-400 font-mono">
+                      Establishing encrypted P2P telemedicine stream
+                    </p>
                   </div>
                 )}
 

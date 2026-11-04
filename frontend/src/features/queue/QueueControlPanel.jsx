@@ -335,30 +335,48 @@ export const QueueControlPanel = () => {
           <div className="divide-y divide-slate-100 rounded-2xl bg-white border border-slate-200/80 overflow-hidden">
             {docAppointments.map((apt) => {
               const isServing = apt.id === currentServingAppointment?.id;
+              const isCompleted = apt.status === 'Completed';
+
               return (
                 <div
                   key={apt.id}
-                  className={`p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors ${
-                    isServing ? 'bg-[#F2F5FF]/60' : 'hover:bg-slate-50'
+                  className={`p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
+                    isCompleted
+                      ? 'bg-slate-100/90 opacity-40 filter grayscale contrast-75 select-none pointer-events-none'
+                      : isServing
+                      ? 'bg-[#F2F5FF]/70'
+                      : 'hover:bg-slate-50/80'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="px-2.5 py-1 rounded-xl text-xs font-black font-sans bg-white border border-slate-200 text-[#4C5BBD] shadow-2xs">
+                    <span
+                      className={`px-2.5 py-1 rounded-xl text-xs font-black font-sans border shadow-2xs ${
+                        isCompleted
+                          ? 'bg-slate-200/60 border-slate-300 text-slate-500'
+                          : 'bg-white border-slate-200 text-[#4C5BBD]'
+                      }`}
+                    >
                       {apt.token_number}
                     </span>
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-black text-[#1F1F1F]">{apt.patient_name}</p>
+                        <p
+                          className={`text-sm font-black ${
+                            isCompleted ? 'text-slate-500 line-through' : 'text-[#1F1F1F]'
+                          }`}
+                        >
+                          {apt.patient_name}
+                        </p>
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            apt.status === 'In Session'
+                            isCompleted
+                              ? 'bg-slate-200 text-slate-500 font-extrabold line-through'
+                              : apt.status === 'In Session'
                               ? 'bg-emerald-100 text-emerald-800 font-black'
-                              : apt.status === 'Completed'
-                              ? 'bg-slate-100 text-slate-600'
                               : 'bg-amber-100 text-amber-800'
                           }`}
                         >
-                          {apt.status}
+                          {isCompleted ? '✓ Completed & Discharged' : apt.status}
                         </span>
                       </div>
                       <p className="text-xs text-[#6B6E84]">
@@ -368,24 +386,33 @@ export const QueueControlPanel = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleAttendChat(apt.id)}
-                      style={{ outline: 'none' }}
-                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#F2F5FF] text-[#4C5BBD] text-xs font-bold border border-slate-200 shadow-2xs cursor-pointer flex items-center gap-1.5"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Chat</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAttendVideo(apt.id)}
-                      style={{ outline: 'none' }}
-                      className="px-3 py-1.5 rounded-xl bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold border-0 shadow-2xs cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Video className="w-3.5 h-3.5" />
-                      <span>Call</span>
-                    </button>
+                    {isCompleted ? (
+                      <span className="px-3.5 py-1.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-bold border border-slate-200/80 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Finished</span>
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAttendChat(apt.id)}
+                          style={{ outline: 'none' }}
+                          className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-[#F2F5FF] text-[#4C5BBD] text-xs font-bold border border-slate-200 shadow-2xs cursor-pointer flex items-center gap-1.5"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Chat</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAttendVideo(apt.id)}
+                          style={{ outline: 'none' }}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold border-0 shadow-2xs cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Call</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );

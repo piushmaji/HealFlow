@@ -7,8 +7,8 @@ export const DoctorStats = () => {
   const { activeDoctor } = useAuth();
   const { queues, appointments } = useQueue();
 
-  const queue = queues[activeDoctor.id] || { current_token: 'CARD-007', total_in_queue: 5 };
-  const doctorAppointments = appointments.filter((a) => a.doctor_id === activeDoctor.id);
+  const queue = queues[activeDoctor?.id] || { current_token: 'None', total_in_queue: 0 };
+  const doctorAppointments = appointments.filter((a) => a.doctor_id === activeDoctor?.id);
 
   const completedCount = doctorAppointments.filter((a) => a.status === 'Completed').length;
 
@@ -23,7 +23,7 @@ export const DoctorStats = () => {
             <CalendarCheck className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-2xl font-black text-[#1F1F1F] font-sans">{doctorAppointments.length + 8}</p>
+        <p className="text-2xl font-black text-[#1F1F1F] font-sans">{doctorAppointments.length}</p>
         <p className="text-[10px] text-[#6B6E84] font-medium">Confirmed Appointments</p>
       </div>
 
@@ -35,7 +35,7 @@ export const DoctorStats = () => {
             <Ticket className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-2xl font-black font-sans text-[#4C5BBD] tracking-wide">{queue.current_token}</p>
+        <p className="text-2xl font-black font-sans text-[#4C5BBD] tracking-wide">{queue.current_token || 'None'}</p>
         <p className="text-[10px] text-[#6B6E84] font-medium">Live Patient in Room</p>
       </div>
 
@@ -47,7 +47,7 @@ export const DoctorStats = () => {
             <Users className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-2xl font-black text-amber-600 font-sans">{queue.total_in_queue}</p>
+        <p className="text-2xl font-black text-amber-600 font-sans">{queue.total_in_queue || 0}</p>
         <p className="text-[10px] text-[#6B6E84] font-medium">Patients in Waiting Hall</p>
       </div>
 
@@ -59,7 +59,7 @@ export const DoctorStats = () => {
             <CheckCircle2 className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-2xl font-black text-emerald-600 font-sans">{completedCount + 4}</p>
+        <p className="text-2xl font-black text-emerald-600 font-sans">{completedCount}</p>
         <p className="text-[10px] text-[#6B6E84] font-medium">Visits Finished Today</p>
       </div>
 

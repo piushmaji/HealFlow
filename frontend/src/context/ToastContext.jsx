@@ -10,12 +10,23 @@ export const ToastProvider = ({ children }) => {
   }, []);
 
   const showToast = useCallback((message, type = 'info', duration = 4000) => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, message, type }]);
+    if (!message) return;
 
-    setTimeout(() => {
-      removeToast(id);
-    }, duration);
+    setToasts((prev) => {
+      // Deduplicate: If an identical toast is already active, do not spawn another one
+      const isDuplicate = prev.some(
+        (t) => t.message.trim().toLowerCase() === message.trim().toLowerCase()
+      );
+      if (isDuplicate) return prev;
+
+      const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+      setTimeout(() => {
+        removeToast(id);
+      }, duration);
+
+      return [...prev, { id, message, type }];
+    });
   }, [removeToast]);
 
   return (

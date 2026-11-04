@@ -52,7 +52,7 @@ export const LiveQueuePage = () => {
               {isDoctor
                 ? 'Manage consultation queue flow and call next patient tokens.'
                 : selectedAppointment
-                ? `Tracking token ${selectedAppointment.token_number} for ${selectedAppointment.hospital || 'Apollo OPD'} (${selectedAppointment.room_number || 'Room 302'}).`
+                ? `Tracking token ${selectedAppointment.token_number} for ${selectedAppointment.hospital || 'HealFlow Clinic'} (${selectedAppointment.room_number || 'Room 101'}).`
                 : 'Select an appointment below to view its dedicated live OPD queue & telemetry.'}
             </p>
           </div>
@@ -101,7 +101,8 @@ export const LiveQueuePage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {scheduledAppointments.map((apt) => {
-              const docQueue = queues[apt.doctor_id] || { current_token: 'CARD-004' };
+              const prefix = (apt.specialty || 'OPD').substring(0, 4).toUpperCase();
+              const docQueue = queues[apt.doctor_id] || { current_token: `${prefix}-001` };
               const ahead = getPatientsAhead(apt.doctor_id, apt.token_number);
               const waitTime = calculateEstimatedWaitTime(ahead);
 

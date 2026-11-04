@@ -15,6 +15,9 @@ export const DoctorsDirectoryPage = () => {
 
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [searchQuery, setSearchQuery] = useState('');
+  const [gender, setGender] = useState('all');
+  const [maxFee, setMaxFee] = useState('');
+  const [sortBy, setSortBy] = useState('rating_desc');
   const [doctors, setDoctors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -22,7 +25,13 @@ export const DoctorsDirectoryPage = () => {
     let isMounted = true;
     setIsLoading(true);
 
-    getDoctors({ specialty, searchQuery }).then((res) => {
+    getDoctors({
+      specialty,
+      searchQuery,
+      gender,
+      maxFee: maxFee ? Number(maxFee) : null,
+      sortBy,
+    }).then((res) => {
       if (isMounted) {
         setDoctors(res);
         setIsLoading(false);
@@ -32,7 +41,7 @@ export const DoctorsDirectoryPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [specialty, searchQuery]);
+  }, [specialty, searchQuery, gender, maxFee, sortBy]);
 
   const handleSelectSpecialty = (specId) => {
     setSpecialty(specId);
@@ -54,6 +63,9 @@ export const DoctorsDirectoryPage = () => {
   const handleClearFilters = () => {
     setSpecialty('all');
     setSearchQuery('');
+    setGender('all');
+    setMaxFee('');
+    setSortBy('rating_desc');
     setSearchParams({});
   };
 
@@ -70,13 +82,60 @@ export const DoctorsDirectoryPage = () => {
       />
 
       {/* Filters Bar */}
-      <div className="space-y-4 mb-6">
+      <div className="space-y-3 mb-6">
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
           onClear={() => setSearchQuery('')}
           placeholder="Search by doctor name, specialty (e.g. Cardiology), or hospital..."
         />
+
+        {/* Secondary Filter Controls (Gender, Max Fee, Sort By) */}
+        <div className="flex items-center gap-3 flex-wrap text-xs font-bold text-[#6B6E84]">
+          <div className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-2xl shadow-xs">
+            <span>Gender:</span>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              style={{ outline: 'none' }}
+              className="bg-transparent text-[#1F1F1F] font-bold border-0 focus:ring-0 cursor-pointer"
+            >
+              <option value="all">All Genders</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-2xl shadow-xs">
+            <span>Max Fee:</span>
+            <select
+              value={maxFee}
+              onChange={(e) => setMaxFee(e.target.value)}
+              style={{ outline: 'none' }}
+              className="bg-transparent text-[#1F1F1F] font-bold border-0 focus:ring-0 cursor-pointer"
+            >
+              <option value="">Any Fee</option>
+              <option value="600">Under ₹600</option>
+              <option value="1000">Under ₹1000</option>
+              <option value="1500">Under ₹1500</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-2xl shadow-xs">
+            <span>Sort By:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ outline: 'none' }}
+              className="bg-transparent text-[#1F1F1F] font-bold border-0 focus:ring-0 cursor-pointer"
+            >
+              <option value="rating_desc">Highest Rated</option>
+              <option value="fee_asc">Fee: Low to High</option>
+              <option value="fee_desc">Fee: High to Low</option>
+              <option value="experience_desc">Most Experienced</option>
+            </select>
+          </div>
+        </div>
 
         <DoctorFilter
           selectedSpecialty={specialty}

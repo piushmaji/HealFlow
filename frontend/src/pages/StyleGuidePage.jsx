@@ -11,6 +11,9 @@ import { CalendarPickerCard } from '../components/ui/CalendarPickerCard';
 import { DistanceSliderCard } from '../components/ui/DistanceSliderCard';
 import { ChatCard } from '../components/ui/ChatCard';
 import { MedicalCenterCard } from '../components/ui/MedicalCenterCard';
+import { Checkbox } from '../components/ui/Checkbox';
+import { Radio } from '../components/ui/Radio';
+import { ConfirmActionModal } from '../components/ui/ConfirmActionModal';
 import {
   Search,
   Sparkles,
@@ -31,6 +34,8 @@ export const StyleGuidePage = () => {
   const [checkboxValue, setCheckboxValue] = useState(true);
   const [searchValue, setSearchValue] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Specialties');
+  const [demoModalOpen, setDemoModalOpen] = useState(false);
+  const [demoModalType, setDemoModalType] = useState('danger');
 
   const copyToClipboard = (hex) => {
     navigator.clipboard.writeText(hex);
@@ -244,7 +249,7 @@ export const StyleGuidePage = () => {
             </div>
 
             {/* Checkboxes, Radios, Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-100 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-slate-100 items-center">
               <div className="flex items-center gap-3">
                 <Toggle
                   checked={toggleState1}
@@ -254,40 +259,67 @@ export const StyleGuidePage = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                <label className="inline-flex items-center gap-2 text-xs font-semibold text-[#1F1F1F] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={checkboxValue}
-                    onChange={(e) => setCheckboxValue(e.target.checked)}
-                    className="w-4 h-4 text-[#5B81FA] rounded accent-[#5B81FA] border-[#CEDEFF]"
-                  />
-                  <span>Save credentials</span>
-                </label>
+                <Checkbox
+                  checked={checkboxValue}
+                  onChange={setCheckboxValue}
+                  label="Save credentials"
+                />
               </div>
 
               <div className="flex items-center gap-4 text-xs font-semibold text-[#1F1F1F]">
-                <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="style-radio"
-                    value="option1"
-                    checked={radioValue === 'option1'}
-                    onChange={() => setRadioValue('option1')}
-                    className="accent-[#5B81FA]"
-                  />
-                  <span>Option A</span>
-                </label>
-                <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="style-radio"
-                    value="option2"
-                    checked={radioValue === 'option2'}
-                    onChange={() => setRadioValue('option2')}
-                    className="accent-[#5B81FA]"
-                  />
-                  <span>Option B</span>
-                </label>
+                <Radio
+                  name="style-guide-radio"
+                  value="option1"
+                  checked={radioValue === 'option1'}
+                  onChange={() => setRadioValue('option1')}
+                  label="Option A"
+                />
+                <Radio
+                  name="style-guide-radio"
+                  value="option2"
+                  checked={radioValue === 'option2'}
+                  onChange={() => setRadioValue('option2')}
+                  label="Option B"
+                />
+              </div>
+            </div>
+
+            {/* Confirmation Dialogs Section */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <p className="text-[10px] font-bold text-[#6B6E84] uppercase">
+                Confirm Action Modals (Border-free, Deep Shadow)
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDemoModalType('logout');
+                    setDemoModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-full bg-[#F2F5FF] hover:bg-[#E5ECFF] text-[#4C5BBD] text-xs font-bold transition-all border-0 shadow-xs cursor-pointer"
+                >
+                  Trigger Logout Dialog
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDemoModalType('danger');
+                    setDemoModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-all border-0 shadow-xs cursor-pointer"
+                >
+                  Trigger Delete Dialog
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDemoModalType('warning');
+                    setDemoModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold transition-all border-0 shadow-xs cursor-pointer"
+                >
+                  Trigger Cancel Dialog
+                </button>
               </div>
             </div>
           </div>
@@ -354,6 +386,38 @@ export const StyleGuidePage = () => {
           </div>
 
         </section>
+
+        {/* Dynamic Action Confirmation Modal Demo */}
+        <ConfirmActionModal
+          isOpen={demoModalOpen}
+          onClose={() => setDemoModalOpen(false)}
+          onConfirm={() => {
+            alert('Action confirmed successfully!');
+            setDemoModalOpen(false);
+          }}
+          type={demoModalType}
+          title={
+            demoModalType === 'logout'
+              ? 'Sign Out of HealFlow?'
+              : demoModalType === 'danger'
+              ? 'Permanently Delete Record?'
+              : 'Cancel Appointment?'
+          }
+          description={
+            demoModalType === 'logout'
+              ? 'Are you sure you want to end your current active session? You will be returned to the login screen.'
+              : demoModalType === 'danger'
+              ? 'This action cannot be undone. All related intake records and telemetry data will be erased.'
+              : 'Are you sure you want to cancel this scheduled consultation slot? Your queue token will be released.'
+          }
+          confirmText={
+            demoModalType === 'logout'
+              ? 'Yes, Sign Out'
+              : demoModalType === 'danger'
+              ? 'Delete Record'
+              : 'Cancel Slot'
+          }
+        />
 
       </div>
     </div>

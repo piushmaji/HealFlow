@@ -172,41 +172,4 @@ export const INITIAL_QUEUES = {
   }
 };
 
-export const INITIAL_PATIENT_APPOINTMENTS = [
-  {
-    id: 'apt-101',
-    patient_name: 'Rahul Sharma',
-    patient_email: 'patient@healflow.in',
-    patient_phone: '+91 98765 43210',
-    doctor_id: 'doc-1',
-    doctor_name: 'Dr. Rajesh Sharma',
-    specialty: 'Cardiology',
-    doctor_avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400',
-    room_number: 'Room 302 (Cardio Block)',
-    date: new Date().toISOString().split('T')[0],
-    time: '10:30 AM',
-    reason: 'Routine ECG checkup and blood pressure monitoring',
-    token_number: 'CARD-007',
-    token_index: 7,
-    status: 'Scheduled',
-    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-  },
-  {
-    id: 'apt-102',
-    patient_name: 'Rahul Sharma',
-    patient_email: 'patient@healflow.in',
-    patient_phone: '+91 98765 43210',
-    doctor_id: 'doc-2',
-    doctor_name: 'Dr. Ananya Roy',
-    specialty: 'Dermatology',
-    doctor_avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400',
-    room_number: 'Room 105 (Derm Clinic)',
-    date: new Date(Date.now() - 86400000 * 5).toISOString().split('T')[0],
-    time: '02:30 PM',
-    reason: 'Skin rash inspection and ointment renewal',
-    token_number: 'DERM-014',
-    token_index: 14,
-    status: 'Completed',
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-  }
-];
+export const INITIAL_PATIENT_APPOINTMENTS = [];

@@ -50,4 +50,19 @@
   --shadow-material-1: 0 2px 8px -2px rgba(91, 129, 250, 0.12), 0 1px 4px -1px rgba(0, 0, 0, 0.04);
   --shadow-material-2: 0 10px 25px -5px rgba(91, 129, 250, 0.18), 0 4px 10px -2px rgba(0, 0, 0, 0.04);
   --shadow-material-3: 0 18px 36px -8px rgba(91, 129, 250, 0.22), 0 6px 12px -4px rgba(0, 0, 0, 0.05);
+
+  /* Discovery Section Palette */
+  --discovery-primary: #4F5FC5;
+  --discovery-primary-hover: #4352B3;
+  --discovery-main-bg: #EEF2FF;
+  --discovery-card-bg: #FFFFFF;
+  --discovery-soft-lavender: #F2F4FF;
+  --discovery-text-primary: #1E293B;
+  --discovery-text-secondary: #64748B;
+  --discovery-border: #E7EAF3;
+  --discovery-success: #16A085;
+  --specialty-physician-bg: #EEF2FF;
+  --specialty-cardiology-bg: #FFF0F1;
+  --specialty-ortho-bg: #F0F8F4;
+  --specialty-neuro-bg: #F5F0FF;
 }

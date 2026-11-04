@@ -1,47 +1,51 @@
-import React from 'react';
-import { Clock, Ticket, User, Phone, CheckCircle2, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Clock, Ticket, User, Phone, CheckCircle2, Calendar, MessageSquare, Video } from 'lucide-react';
 import { useQueue } from '../../context/QueueContext';
 import { useToast } from '../../context/ToastContext';
+import { fetchDoctorAppointmentsFromBackend, updateAppointmentStatusInBackend } from '../../services/doctorBackendService';
 
 export const DailySchedule = ({ doctorId }) => {
+  const navigate = useNavigate();
   const { appointments, completeAppointment } = useQueue();
   const { showToast } = useToast();
+  const [dbAppointments, setDbAppointments] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const doctorAppointments = appointments.filter((a) => a.doctor_id === doctorId);
+  // Load real appointments from backend/Supabase for this doctor
+  useEffect(() => {
+    if (!doctorId) return;
+    setIsLoading(true);
+    fetchDoctorAppointmentsFromBackend(doctorId)
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setDbAppointments(data);
+        }
+      })
+      .catch((err) => console.warn('Failed to fetch doctor appointments:', err))
+      .finally(() => setIsLoading(false));
+  }, [doctorId]);
 
-  const scheduleItems = doctorAppointments.length > 0 ? doctorAppointments : [
-    {
-      id: 'apt-sample-1',
-      patient_name: 'Rahul Sharma',
-      patient_phone: '+91 98765 43210',
-      time: '09:00 AM',
-      token_number: 'CARD-001',
-      notes: 'Hypertension follow-up & blood pressure check',
-      status: 'Completed',
-    },
-    {
-      id: 'apt-sample-2',
-      patient_name: 'Priya Verma',
-      patient_phone: '+91 98450 11223',
-      time: '09:30 AM',
-      token_number: 'CARD-002',
-      notes: 'Chest pressure evaluation during exercise',
-      status: 'In Session',
-    },
-    {
-      id: 'apt-sample-3',
-      patient_name: 'Amit Patel',
-      patient_phone: '+91 97110 55443',
-      time: '10:30 AM',
-      token_number: 'CARD-007',
-      notes: 'Routine ECG checkup & lipid telemetry',
-      status: 'Scheduled',
-    },
-  ];
+  // Combine queue context appointments and dbAppointments
+  const mergedMap = new Map();
+  dbAppointments.forEach((a) => mergedMap.set(a.id, a));
+  appointments.filter((a) => a.doctor_id === doctorId).forEach((a) => mergedMap.set(a.id, a));
 
-  const handleMarkComplete = (aptId, patientName) => {
+  const scheduleItems = Array.from(mergedMap.values());
+
+  const handleMarkComplete = async (aptId, patientName) => {
+    try {
+      await updateAppointmentStatusInBackend(aptId, 'Completed');
+    } catch (e) {}
     completeAppointment(aptId);
+    setDbAppointments((prev) =>
+      prev.map((a) => (a.id === aptId ? { ...a, status: 'Completed' } : a))
+    );
     showToast(`Consultation for ${patientName} marked complete.`, 'success');
+  };
+
+  const handleAttendPatient = (aptId) => {
+    navigate(`/patients/consultation/${aptId}`);
   };
 
   return (
@@ -66,7 +70,14 @@ export const DailySchedule = ({ doctorId }) => {
 
       {/* Schedule Items List */}
       <div className="space-y-3 font-sans">
-        {scheduleItems.map((apt) => {
+        {scheduleItems.length === 0 ? (
+          <div className="p-8 text-center bg-[#F8FAFE] rounded-2xl border-0 shadow-xs space-y-2">
+            <Ticket className="w-8 h-8 text-[#4C5BBD] mx-auto opacity-40" />
+            <h4 className="text-xs font-bold text-[#1F1F1F]">No Appointments Scheduled Yet</h4>
+            <p className="text-[11px] text-[#6B6E84]">New patient bookings and queue queries will appear here in real-time.</p>
+          </div>
+        ) : (
+          scheduleItems.map((apt) => {
           const isCompleted = apt.status === 'Completed';
           const isInSession = apt.status === 'In Session';
 
@@ -78,7 +89,7 @@ export const DailySchedule = ({ doctorId }) => {
               <div className="flex items-start gap-3.5 min-w-0">
                 <div className="px-3 py-1.5 rounded-xl bg-white border-0 text-center font-sans text-xs font-black text-[#4C5BBD] shadow-xs shrink-0">
                   <Clock className="w-3.5 h-3.5 text-[#4C5BBD] mx-auto mb-0.5" />
-                  <span>{apt.time}</span>
+                  <span>{apt.time || apt.slot_time}</span>
                 </div>
 
                 <div className="space-y-0.5 min-w-0">
@@ -88,16 +99,16 @@ export const DailySchedule = ({ doctorId }) => {
                       {apt.token_number}
                     </span>
                   </div>
-                  <p className="text-xs text-[#6B6E84] font-medium leading-tight truncate">{apt.notes || apt.reason}</p>
+                  <p className="text-xs text-[#6B6E84] font-medium leading-tight truncate">{apt.notes || apt.reason || 'Routine Consultation'}</p>
                   <p className="text-[10px] text-[#6B6E84] font-semibold flex items-center gap-1">
                     <Phone className="w-3 h-3 text-[#4C5BBD]" />
-                    <span>{apt.patient_phone}</span>
+                    <span>{apt.patient_phone || 'No phone provided'}</span>
                   </p>
                 </div>
               </div>
 
               {/* Status & Actions */}
-              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+              <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center flex-wrap">
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold ${
                     isCompleted
@@ -110,21 +121,44 @@ export const DailySchedule = ({ doctorId }) => {
                   {apt.status}
                 </span>
 
+                {/* Pick Chat / Video Consultation */}
+                <button
+                  type="button"
+                  onClick={() => handleAttendPatient(apt.id)}
+                  style={{ outline: 'none' }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold shadow-xs transition-all border-0 cursor-pointer"
+                  title="Pick Chat & Attend consultation"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Pick Chat</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleAttendPatient(apt.id)}
+                  style={{ outline: 'none' }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all border-0 cursor-pointer"
+                  title="Launch Call with Patient"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Call</span>
+                </button>
+
                 {!isCompleted && (
                   <button
                     type="button"
                     onClick={() => handleMarkComplete(apt.id, apt.patient_name)}
                     style={{ outline: 'none' }}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all border-0"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all border-0 cursor-pointer"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Mark Complete</span>
+                    <span>Complete</span>
                   </button>
                 )}
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
 
     </div>

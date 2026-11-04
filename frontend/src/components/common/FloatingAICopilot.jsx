@@ -68,12 +68,12 @@ export const FloatingAICopilot = () => {
           type="button"
           onClick={() => setIsOpen(true)}
           style={{ outline: 'none' }}
-          className="flex items-center gap-2.5 px-4 py-3 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-black shadow-2xl transition-all hover:scale-105 border-0"
+          className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold shadow-lg transition-all hover:scale-105 border-0"
         >
-          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
+          <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <Sparkles className="w-3 h-3 text-white animate-pulse" />
           </div>
-          <span>AI Health Copilot</span>
+          <span>AI Copilot</span>
         </button>
       ) : (
         /* Floating Chatbot Drawer Window */

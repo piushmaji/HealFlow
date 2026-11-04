@@ -13,6 +13,7 @@ import { PatientDashboardPage } from '../pages/PatientDashboardPage';
 import { PatientProfilePage } from '../pages/PatientProfilePage';
 import { DoctorConsultationChatPage } from '../pages/DoctorConsultationChatPage';
 import { DoctorDashboardPage } from '../pages/DoctorDashboardPage';
+import { DoctorProfilePage } from '../pages/DoctorProfilePage';
 import { AIAssistantPage } from '../pages/AIAssistantPage';
 import { StyleGuidePage } from '../pages/StyleGuidePage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -91,6 +92,12 @@ export const AppRoutes = () => {
         <Route path="/style-guide" element={<StyleGuidePage />} />
       </Route>
 
+      {/* Onboarding Redirect to Dashboard */}
+      <Route
+        path="/onboarding"
+        element={<Navigate to="/patients/dashboard" replace />}
+      />
+
       {/* 2. Authenticated Common Dashboard Layout */}
       <Route
         element={
@@ -126,22 +133,14 @@ export const AppRoutes = () => {
         />
         <Route
           path="/patients/consultation/:appointmentId"
-          element={
-            <PatientOnlyRoute>
-              <DoctorConsultationChatPage />
-            </PatientOnlyRoute>
-          }
+          element={<DoctorConsultationChatPage />}
         />
         <Route
           path="/patients/chat/:appointmentId"
-          element={
-            <PatientOnlyRoute>
-              <DoctorConsultationChatPage />
-            </PatientOnlyRoute>
-          }
+          element={<DoctorConsultationChatPage />}
         />
 
-        {/* Doctor Exclusive Route */}
+        {/* Doctor Exclusive Routes */}
         <Route
           path="/doctor-dashboard"
           element={
@@ -149,6 +148,22 @@ export const AppRoutes = () => {
               <DoctorDashboardPage />
             </DoctorOnlyRoute>
           }
+        />
+        <Route
+          path="/doctor/profile"
+          element={
+            <DoctorOnlyRoute>
+              <DoctorProfilePage />
+            </DoctorOnlyRoute>
+          }
+        />
+        <Route
+          path="/doctor-dashboard/edit-profile"
+          element={<Navigate to="/doctor/profile" replace />}
+        />
+        <Route
+          path="/doctor/profile/edit"
+          element={<Navigate to="/doctor/profile" replace />}
         />
 
         {/* Shared Workspace Feature Routes */}

@@ -47,13 +47,24 @@ export const DoctorDetailsPage = () => {
     );
   }
 
-  const degrees = doctor.degrees || ['MBBS', 'MD (Cardiology)', 'FACC (Fellow of American College of Cardiology)'];
-  const specializations = doctor.specializations || [
-    'Interventional Cardiology',
-    'Hypertension & Vascular Care',
-    'Coronary Artery Disease',
-    'Preventive Cardiac Telemetry',
-  ];
+  // Dynamic degrees parsing from doctor.title or doctor.degrees
+  const degrees = Array.isArray(doctor.degrees) && doctor.degrees.length > 0
+    ? doctor.degrees
+    : doctor.title
+    ? doctor.title.split(',').map((d) => d.trim()).filter(Boolean)
+    : ['Medical Degree Registered'];
+
+  const specializations = Array.isArray(doctor.specializations) && doctor.specializations.length > 0
+    ? doctor.specializations
+    : [
+        doctor.specialty || 'General Practice',
+        'Clinical Consultations & Diagnosis',
+        'Prescription & Disease Management',
+        'Preventative Healthcare & Telemetry',
+      ];
+
+  const totalPatients = doctor.review_count ? `${doctor.review_count * 15}+` : '100+';
+  const bioText = doctor.bio?.trim() || `${doctor.name || 'This doctor'} is a verified medical specialist in ${doctor.specialty || 'General Medicine'} consulting at ${doctor.hospital || 'HealFlow Clinic'}.`;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-10 font-sans">
@@ -119,12 +130,12 @@ export const DoctorDetailsPage = () => {
         {/* 2. Highlights Bar (Single Line Text fit) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3.5 rounded-2xl bg-[#F8FAFE] border-0 shadow-xs text-center">
-            <p className="text-[10px] font-bold text-[#6B6E84] uppercase font-secondary">Total Patients</p>
-            <p className="text-base font-black text-[#4C5BBD] font-sans mt-0.5">2,400+</p>
+            <p className="text-[10px] font-bold text-[#6B6E84] uppercase font-secondary">Total Consultations</p>
+            <p className="text-base font-black text-[#4C5BBD] font-sans mt-0.5">{totalPatients}</p>
           </div>
           <div className="p-3.5 rounded-2xl bg-[#F8FAFE] border-0 shadow-xs text-center">
             <p className="text-[10px] font-bold text-[#6B6E84] uppercase font-secondary">OPD Destination</p>
-            <p className="text-sm sm:text-base font-black text-[#1F1F1F] font-sans mt-0.5 truncate">{doctor.room_number || 'Room 302'}</p>
+            <p className="text-sm sm:text-base font-black text-[#1F1F1F] font-sans mt-0.5 truncate">{doctor.room_number || 'Room 101'}</p>
           </div>
           <div className="p-3.5 rounded-2xl bg-[#F8FAFE] border-0 shadow-xs text-center">
             <p className="text-[10px] font-bold text-[#6B6E84] uppercase font-secondary">Avg Consultation</p>
@@ -142,7 +153,7 @@ export const DoctorDetailsPage = () => {
             Biography & Clinical Overview
           </h3>
           <p className="text-xs text-[#6B6E84] leading-relaxed font-medium font-secondary">
-            {doctor.bio}
+            {bioText}
           </p>
         </div>
       </div>

@@ -1,21 +1,20 @@
 import { supabase, isSupabaseConfigured } from './client';
-import { INITIAL_QUEUES } from '../../utils/mockData';
 
 export const getDoctorQueue = async (doctorId) => {
   if (isSupabaseConfigured) {
     try {
-      const { data, error } = await supabase.from('queues').select('*').eq('doctor_id', doctorId).single();
+      const { data, error } = await supabase.from('queues').select('*').eq('doctor_id', doctorId).maybeSingle();
       if (!error && data) return data;
     } catch (err) {
       console.warn('Supabase getDoctorQueue error:', err.message);
     }
   }
 
-  return INITIAL_QUEUES[doctorId] || {
+  return {
     doctor_id: doctorId,
-    current_token: 'CLN-001',
-    serving_patient: 'Regular Walk-in',
-    total_in_queue: 5,
+    current_token: 'OPD-001',
+    serving_patient: 'Waiting in Room',
+    total_in_queue: 0,
     status: 'ACTIVE',
     last_updated: new Date().toISOString(),
   };

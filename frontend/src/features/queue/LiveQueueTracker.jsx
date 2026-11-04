@@ -34,22 +34,27 @@ export const LiveQueueTracker = ({ appointment }) => {
     );
   }
 
+  const defaultTokenPrefix = (appointment.specialty || 'OPD').substring(0, 4).toUpperCase();
   const doctorQueue = queues[appointment.doctor_id] || {
-    current_token: 'CARD-004',
-    serving_patient: 'Amit Gupta',
-    total_in_queue: 5,
+    current_token: appointment.token_number || `${defaultTokenPrefix}-001`,
+    serving_patient: appointment.patient_name || 'Patient',
+    total_in_queue: 1,
     status: 'ACTIVE',
   };
 
   const patientsAhead = getPatientsAhead(appointment.doctor_id, appointment.token_number);
   const estimatedWait = calculateEstimatedWaitTime(patientsAhead);
 
-  // Auto notification when turn arrives
+  // Auto notification ONLY once when turn actually arrives
   useEffect(() => {
     if (patientsAhead === 0) {
-      showToast(`IT'S YOUR TURN NOW! Please enter ${appointment.room_number || 'Room 302'}.`, 'success');
+      const notifiedKey = `turn_notified_${appointment.id}_${appointment.token_number}`;
+      if (!sessionStorage.getItem(notifiedKey)) {
+        sessionStorage.setItem(notifiedKey, 'true');
+        showToast(`IT'S YOUR TURN NOW! Please enter ${appointment.room_number || 'Room 101'}.`, 'success');
+      }
     }
-  }, [patientsAhead]);
+  }, [patientsAhead, appointment.id, appointment.token_number, appointment.room_number, showToast]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -85,8 +90,8 @@ export const LiveQueueTracker = ({ appointment }) => {
   if (patientsAhead === 0) {
     // Actually Your Turn Now State: Fresh Medical Mint Green Background!
     statusBanner = {
-      title: `Your Turn — Enter Room 302`,
-      description: `Token ${appointment.token_number} called. Dr. Sharma is ready.`,
+      title: `Your Turn — Enter ${appointment.room_number || 'Room 101'}`,
+      description: `Token ${appointment.token_number} called. ${appointment.doctor_name || 'The doctor'} is ready.`,
       badgeText: 'Token Called',
       bgClass: 'bg-[#ECFDF5] text-[#064E3B] shadow-xs border-0',
       badgeBg: 'bg-emerald-600 text-white font-black',
@@ -102,7 +107,7 @@ export const LiveQueueTracker = ({ appointment }) => {
     // Alert / Next in Line State: Soft Ice Blue Background!
     statusBanner = {
       title: `Get Ready • You Are Next`,
-      description: `Please stand outside Room 302.`,
+      description: `Please stand outside ${appointment.room_number || 'Consultation Room'}.`,
       badgeText: 'Next in Line',
       bgClass: 'bg-[#EBF1FF] text-[#161B33] shadow-xs border-0',
       badgeBg: 'bg-[#4C5BBD] text-white font-black',
@@ -143,7 +148,7 @@ export const LiveQueueTracker = ({ appointment }) => {
               <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <div className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold font-secondary shadow-xs border-0 shrink-0 ${statusBanner.locationBg}`}>
                   <Building2 className="w-4 h-4 text-emerald-600" />
-                  <span>Room 302 • Cardio</span>
+                  <span>{appointment.room_number || 'Room 101'} • {appointment.specialty}</span>
                 </div>
 
                 <button
@@ -212,7 +217,7 @@ export const LiveQueueTracker = ({ appointment }) => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[#6B6E84] font-medium">Room:</span>
-              <span className="font-bold text-[#4C5BBD]">{appointment.room_number || 'Room 302'}</span>
+              <span className="font-bold text-[#4C5BBD]">{appointment.room_number || 'Room 101'}</span>
             </div>
           </div>
         </div>

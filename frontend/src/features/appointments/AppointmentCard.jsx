@@ -1,29 +1,38 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { Calendar, Clock, MapPin, Ticket, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, MapPin, Ticket, ArrowRight, User } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 import { useQueue } from '../../context/QueueContext';
 
 export const AppointmentCard = ({ appointment }) => {
   const navigate = useNavigate();
   const { setActiveTrackingAppointment } = useQueue();
+  const [imgError, setImgError] = useState(false);
 
   const handleTrackQueue = () => {
     setActiveTrackingAppointment(appointment);
     navigate(`/patients/live-queue/${appointment.id}`);
   };
 
+  const doctorPhoto =
+    !imgError && appointment.doctor_avatar
+      ? appointment.doctor_avatar
+      : 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400';
+
   return (
     <div className="bg-[#F8FAFE] hover:bg-[#F2F5FF] rounded-3xl p-4 sm:p-5 border-0 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 transition-all duration-200 font-sans group">
       
       {/* 1. Left Section: Avatar, Doctor Info, Token & Status */}
       <div className="flex items-center gap-3.5 min-w-0 flex-1">
-        <img
-          src={appointment.doctor_avatar}
-          alt={appointment.doctor_name}
-          className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border-0 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
-        />
+        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden border-2 border-white shadow-xs shrink-0 group-hover:scale-105 transition-transform bg-[#EEF2FF] flex items-center justify-center">
+          <img
+            src={doctorPhoto}
+            alt={appointment.doctor_name || 'Doctor'}
+            onError={() => setImgError(true)}
+            className="w-full h-full object-cover"
+          />
+        </div>
 
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -43,7 +52,7 @@ export const AppointmentCard = ({ appointment }) => {
             <span className="font-bold text-[#4C5BBD]">{appointment.specialty}</span>
             <span>•</span>
             <MapPin className="w-3 h-3 text-[#6B6E84] shrink-0" />
-            <span>{appointment.room_number || 'Room 302'}</span>
+            <span>{appointment.room_number || 'Room 101'}</span>
           </p>
         </div>
       </div>

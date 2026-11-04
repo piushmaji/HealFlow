@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
@@ -17,11 +17,20 @@ import {
   ChevronRight,
   ShieldCheck,
 } from 'lucide-react';
-import { MOCK_DOCTORS } from '../utils/mockData';
+import { getDoctors } from '../services/supabase/doctorService';
 
 export const HomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const [featuredDoctors, setFeaturedDoctors] = useState([]);
+
+  useEffect(() => {
+    getDoctors().then((docs) => {
+      if (Array.isArray(docs)) {
+        setFeaturedDoctors(docs.slice(0, 3));
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleAction = (authenticatedPath) => {
     if (isAuthenticated) {
@@ -216,12 +225,12 @@ export const HomePage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {MOCK_DOCTORS.slice(0, 3).map((doc) => (
+          {featuredDoctors.map((doc) => (
             <div key={doc.id} className="p-5 rounded-3xl bg-[#F8FAFE] border-0 shadow-xs flex flex-col justify-between">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
                   <img
-                    src={doc.avatar_url}
+                    src={doc.avatar_url || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'}
                     alt={doc.name}
                     className="w-12 h-12 rounded-full object-cover border-0 shadow-xs"
                   />
@@ -238,7 +247,7 @@ export const HomePage = () => {
                   <div className="flex items-center gap-1 font-bold text-amber-500">
                     <Star className="w-3.5 h-3.5 fill-amber-400" />
                     <span>{doc.rating}</span>
-                    <span className="text-[#6B6E84] font-normal">({doc.reviews_count})</span>
+                    <span className="text-[#6B6E84] font-normal">({doc.review_count || doc.reviews_count || 120})</span>
                   </div>
                   <span className="font-extrabold text-[#5B81FA]">₹{doc.consultation_fee || 800} / visit</span>
                 </div>

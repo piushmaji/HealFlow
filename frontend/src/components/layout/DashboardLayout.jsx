@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useQueue } from '../../context/QueueContext';
 import { ToastContainer } from '../common/Toast';
-import { FloatingAICopilot } from '../common/FloatingAICopilot';
+import { ChatbotWidget } from '../chatbot/ChatbotWidget';
+import { ConfirmActionModal } from '../ui/ConfirmActionModal';
+import { IncomingConsultationNotification } from '../../features/dashboard/IncomingConsultationNotification';
 import { HealFlowLogo } from '../common/HealFlowLogo';
 import { HealFlowIcon } from '../common/HealFlowIcon';
 import {
@@ -24,10 +27,12 @@ import {
 export const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
   const { isDoctor, activeDoctor, patientUser, logout } = useAuth();
+  const { activeTrackingAppointment } = useQueue();
 
   // Track visited routes in session to enable first-time smooth transition & zero animation afterwards
   const visitedRoutesRef = useRef(new Set());
@@ -62,6 +67,7 @@ export const DashboardLayout = () => {
         { name: 'Patient Queue Telemetry', path: '/live-queue', icon: Clock, badge: 'Live' },
         { name: 'Doctor Directory', path: '/doctors', icon: Stethoscope },
         { name: 'AI Medical Guide', path: '/ai-assistant', icon: Sparkles, badge: 'AI' },
+        { name: 'My Profile', path: '/doctor/profile', icon: User },
         { name: 'Style Guide', path: '/style-guide', icon: Palette },
       ]
     : [
@@ -94,6 +100,9 @@ export const DashboardLayout = () => {
     }
     if (linkPath === '/patients/profile') {
       return currentPath === '/patients/profile';
+    }
+    if (linkPath === '/doctor/profile') {
+      return currentPath === '/doctor/profile' || currentPath.startsWith('/doctor/profile') || currentPath === '/doctor-dashboard/edit-profile';
     }
     if (linkPath === '/doctor-dashboard') {
       return currentPath === '/doctor-dashboard';
@@ -143,7 +152,7 @@ export const DashboardLayout = () => {
 
           {/* User Profile Block inside Sidebar */}
           <Link
-            to={isDoctor ? '/doctor-dashboard' : '/patients/profile'}
+            to={isDoctor ? '/doctor/profile' : '/patients/profile'}
             className="p-3.5 bg-white/10 border-0 rounded-2xl flex items-center gap-3 hover:bg-white/20 transition-colors block"
             style={{ outline: 'none' }}
           >
@@ -207,9 +216,9 @@ export const DashboardLayout = () => {
         <div className="pt-4 border-t border-white/15 space-y-2 shrink-0">
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             style={{ outline: 'none' }}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-full text-xs font-bold text-rose-200 bg-rose-500/20 hover:bg-rose-500/30 border-0 transition-colors outline-none focus:outline-none"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-full text-xs font-bold text-rose-200 bg-rose-500/20 hover:bg-rose-500/30 border-0 transition-colors outline-none focus:outline-none cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
@@ -285,15 +294,28 @@ export const DashboardLayout = () => {
                 </form>
 
                 {/* Live Queue Token Badge */}
-                <Link
-                  to="/patients/live-queue"
-                  style={{ outline: 'none' }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-[#F2F5FF] border-0 hover:bg-white text-xs font-bold transition-all shadow-xs outline-none focus:outline-none"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                  <span className="text-[10px] text-[#6B6E84] hidden md:inline">Token:</span>
-                  <span className="font-sans text-[#4C5BBD] font-black text-xs tracking-wide">CARD-007</span>
-                </Link>
+                {!isDoctor && activeTrackingAppointment ? (
+                  <Link
+                    to={`/patients/live-queue/${activeTrackingAppointment.id}`}
+                    style={{ outline: 'none' }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-[#F2F5FF] border-0 hover:bg-white text-xs font-bold transition-all shadow-xs outline-none focus:outline-none"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                    <span className="text-[10px] text-[#6B6E84] hidden md:inline">Token:</span>
+                    <span className="font-sans text-[#4C5BBD] font-black text-xs tracking-wide">
+                      {activeTrackingAppointment.token_number}
+                    </span>
+                  </Link>
+                ) : !isDoctor ? (
+                  <Link
+                    to="/patients/live-queue"
+                    style={{ outline: 'none' }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-[#F2F5FF] border-0 hover:bg-white text-xs font-bold transition-all shadow-xs outline-none focus:outline-none"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-[#4C5BBD]" />
+                    <span className="text-xs text-[#4C5BBD] font-bold hidden md:inline">Live Queue</span>
+                  </Link>
+                ) : null}
 
                 {/* Notification Bell */}
                 <div className="relative flex items-center">
@@ -301,10 +323,12 @@ export const DashboardLayout = () => {
                     type="button"
                     onClick={() => setShowNotifications(!showNotifications)}
                     style={{ outline: 'none' }}
-                    className="p-2 sm:p-2.5 rounded-full bg-[#F2F5FF] text-[#6B6E84] hover:text-[#4C5BBD] transition-colors relative border-0 shadow-xs outline-none focus:outline-none"
+                    className="p-2 sm:p-2.5 rounded-full bg-[#F2F5FF] text-[#6B6E84] hover:text-[#4C5BBD] transition-colors relative border-0 shadow-xs outline-none focus:outline-none cursor-pointer"
                   >
                     <Bell className="w-4 h-4" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#4C5BBD]"></span>
+                    {activeTrackingAppointment && (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#4C5BBD]"></span>
+                    )}
                   </button>
 
                   {showNotifications && (
@@ -316,15 +340,25 @@ export const DashboardLayout = () => {
                       <div className="absolute right-0 mt-2 w-72 bg-white text-[#161B33] rounded-2xl border-0 shadow-xl p-4 z-50 text-xs space-y-3 animate-fade-in">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                           <span className="font-bold text-[#161B33]">Queue Alerts</span>
-                          <span className="text-[10px] font-bold text-[#4C5BBD] uppercase">1 New</span>
+                          <span className="text-[10px] font-bold text-[#4C5BBD] uppercase">
+                            {activeTrackingAppointment ? '1 Active' : '0 Alerts'}
+                          </span>
                         </div>
-                        <div className="flex items-start gap-2.5 p-2 rounded-xl bg-[#F8FAFE] border-0 shadow-xs">
-                          <Clock className="w-4 h-4 text-[#4C5BBD] shrink-0 mt-0.5" />
-                          <div>
-                            <p className="font-bold text-[#161B33]">Your Turn Approaching</p>
-                            <p className="text-[11px] text-[#6B6E84]">3 patients ahead for Dr. Rajesh Sharma (Room 302).</p>
+                        {activeTrackingAppointment ? (
+                          <div className="flex items-start gap-2.5 p-2 rounded-xl bg-[#F8FAFE] border-0 shadow-xs">
+                            <Clock className="w-4 h-4 text-[#4C5BBD] shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-bold text-[#161B33]">Token Active</p>
+                              <p className="text-[11px] text-[#6B6E84]">
+                                Token {activeTrackingAppointment.token_number} with {activeTrackingAppointment.doctor_name || 'Dr. Specialist'} ({activeTrackingAppointment.room_number || 'Room 101'}).
+                              </p>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <p className="text-[11px] text-[#6B6E84] text-center py-2">
+                            No active queue alerts at this time.
+                          </p>
+                        )}
                       </div>
                     </>
                   )}
@@ -332,7 +366,7 @@ export const DashboardLayout = () => {
 
                 {/* User Profile Avatar */}
                 <Link
-                  to={isDoctor ? '/doctor-dashboard' : '/patients/profile'}
+                  to={isDoctor ? '/doctor/profile' : '/patients/profile'}
                   className="flex items-center pl-1 sm:pl-2 shrink-0"
                 >
                   <img
@@ -355,8 +389,21 @@ export const DashboardLayout = () => {
           </div>
         </main>
         
-        <FloatingAICopilot />
+        <ChatbotWidget />
         <ToastContainer />
+        <IncomingConsultationNotification />
+
+        {/* Global Sign Out Confirmation Popup */}
+        <ConfirmActionModal
+          isOpen={showLogoutConfirm}
+          onClose={() => setShowLogoutConfirm(false)}
+          onConfirm={handleLogout}
+          type="logout"
+          title="Sign Out from HealFlow?"
+          description="Are you sure you want to log out of your session? You will need to sign in again to access your live OPD tokens and consultations."
+          confirmText="Yes, Sign Out"
+          cancelText="Stay Signed In"
+        />
       </div>
 
     </div>

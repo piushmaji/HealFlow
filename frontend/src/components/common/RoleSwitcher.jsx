@@ -1,12 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { User, Stethoscope } from 'lucide-react';
-import { MOCK_DOCTORS } from '../../utils/mockData';
+import { getDoctors } from '../../services/supabase/doctorService';
 
 export const RoleSwitcher = () => {
   const { role, switchRole, activeDoctor, switchDoctor } = useAuth();
   const navigate = useNavigate();
+  const [dbDoctors, setDbDoctors] = useState([]);
+
+  useEffect(() => {
+    getDoctors().then((docs) => {
+      if (Array.isArray(docs)) setDbDoctors(docs);
+    }).catch(() => {});
+  }, []);
 
   const handlePatientSwitch = () => {
     switchRole('patient');
@@ -51,7 +58,7 @@ export const RoleSwitcher = () => {
             onChange={(e) => switchDoctor(e.target.value)}
             className="ml-1.5 bg-white text-[#29318A] border border-[#CEDEFF] rounded-full text-[11px] font-extrabold py-1 px-2 focus:outline-none focus:border-[#5B81FA] cursor-pointer"
           >
-            {MOCK_DOCTORS.map((d) => (
+            {dbDoctors.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name} ({d.specialty})
               </option>

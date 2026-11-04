@@ -33,13 +33,9 @@ export const Input = ({
         <input
           id={inputId}
           type={type}
-          className={`w-full bg-white border ${
-            error
-              ? 'border-rose-400 focus:ring-rose-400'
-              : 'border-[#CEDEFF] focus:border-[#5B81FA] focus:ring-[#5B81FA]/20'
-          } ${roundedClass} ${Icon ? 'pl-11' : 'pl-4'} ${
+          className={`w-full bg-[#F8FAFE] focus:bg-white border-0 ${roundedClass} ${Icon ? 'pl-11' : 'pl-4'} ${
             ActionIcon ? 'pr-12' : 'pr-4'
-          } py-3 text-sm text-[#1F1F1F] placeholder-[#A8B1CE] shadow-sm transition-all focus:outline-none focus:ring-4 disabled:bg-[#F2F5FF] disabled:text-[#A8B1CE] ${className}`}
+          } py-3 text-xs sm:text-sm font-bold text-[#1F1F1F] placeholder-[#6B6E84] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#4C5BBD]/25 disabled:bg-[#F2F5FF] disabled:text-[#A8B1CE] ${className}`}
           {...props}
         />
         {ActionIcon && (

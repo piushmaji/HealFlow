@@ -698,10 +698,11 @@ export const DoctorConsultationChatPage = () => {
     );
   }
 
-  // 2. STRICT IST TIME SLOT GUARD: Session ONLY unlocks at Indian Standard Time (or Instant Demo)
+  // 2. IST TIME SLOT GUARD: If doctor has already admitted the session ('In Session'), allow entrance immediately
   const isDemoOrInstant =
     appointment.is_demo ||
     appointment.is_instant ||
+    appointment.status === 'In Session' ||
     (appointment.slot_time && /instant|demo|immediate/i.test(appointment.slot_time)) ||
     (appointment.reason && /instant|demo|presentation/i.test(appointment.reason));
 
@@ -834,44 +835,38 @@ export const DoctorConsultationChatPage = () => {
             <span>Max 30 Mins Slot</span>
           </span>
 
-          {isDoctor ? (
-            <>
-              <button
-                type="button"
-                onClick={() => handleStartCall('audio')}
-                style={{ outline: 'none' }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white text-[#4C5BBD] text-xs font-black transition-all shadow-xs border border-slate-200/80 cursor-pointer"
-              >
-                <PhoneCall className="w-4 h-4" />
-                <span>Audio Call</span>
-              </button>
+          {/* Audio and Video Call Buttons (Available for both Doctor and Patient in active session) */}
+          <button
+            type="button"
+            onClick={() => handleStartCall('audio')}
+            style={{ outline: 'none' }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white text-[#4C5BBD] text-xs font-black transition-all shadow-xs border border-slate-200/80 cursor-pointer"
+          >
+            <PhoneCall className="w-4 h-4" />
+            <span>Audio Call</span>
+          </button>
 
-              <button
-                type="button"
-                onClick={() => handleStartCall('video')}
-                style={{ outline: 'none' }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
-              >
-                <Video className="w-4 h-4" />
-                <span>Video Call</span>
-              </button>
+          <button
+            type="button"
+            onClick={() => handleStartCall('video')}
+            style={{ outline: 'none' }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
+          >
+            <Video className="w-4 h-4" />
+            <span>Video Call</span>
+          </button>
 
-              <button
-                type="button"
-                onClick={handleCompleteConsultation}
-                style={{ outline: 'none' }}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
-                title="Mark consultation complete and admit next patient"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Complete Visit</span>
-              </button>
-            </>
-          ) : (
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F0FDF4] text-emerald-800 text-xs font-bold border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Chamber Active • Doctor Calls You</span>
-            </span>
+          {isDoctor && (
+            <button
+              type="button"
+              onClick={handleCompleteConsultation}
+              style={{ outline: 'none' }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
+              title="Mark consultation complete and admit next patient"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Complete Visit</span>
+            </button>
           )}
         </div>
       </div>

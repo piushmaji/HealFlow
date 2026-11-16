@@ -5,10 +5,25 @@
  */
 
 const getChatbotBase = () => {
-  if (typeof window !== 'undefined' && window.location && window.location.hostname !== 'localhost') {
-    return `http://${window.location.hostname}:5001/api/chat`;
+  const envUrl = import.meta.env.VITE_BACKEND_URL;
+  if (envUrl && !envUrl.includes('localhost')) {
+    return envUrl;
   }
-  return import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001/api/chat';
+
+  if (typeof window !== 'undefined' && window.location) {
+    const isHttps = window.location.protocol === 'https:';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (envUrl) {
+      return envUrl;
+    }
+
+    if (!isLocalhost && !isHttps) {
+      return `http://${window.location.hostname}:5001/api/chat`;
+    }
+  }
+
+  return envUrl || 'http://localhost:5001/api/chat';
 };
 
 const API_BASE_URL = getChatbotBase();

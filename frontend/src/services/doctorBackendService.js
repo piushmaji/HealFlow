@@ -4,11 +4,29 @@
  * Dynamically resolves backend host for cross-device mobile/laptop testing
  */
 const getBackendBase = () => {
-  if (typeof window !== 'undefined' && window.location && window.location.hostname !== 'localhost') {
-    return `http://${window.location.hostname}:5001/api/doctors`;
+  // If explicitly provided via Vite environment variable (e.g. on Render/Vercel)
+  const envUrl = import.meta.env.VITE_BACKEND_URL;
+  if (envUrl && !envUrl.includes('localhost')) {
+    return envUrl.replace('/api/chat', '/api/doctors');
   }
-  return import.meta.env.VITE_BACKEND_URL
-    ? import.meta.env.VITE_BACKEND_URL.replace('/api/chat', '/api/doctors')
+
+  // If running in browser on local network (e.g. mobile accessing laptop IP over HTTP)
+  if (typeof window !== 'undefined' && window.location) {
+    const isHttps = window.location.protocol === 'https:';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    // If on HTTPS (e.g. *.vercel.app) and envUrl is given, respect it
+    if (envUrl) {
+      return envUrl.replace('/api/chat', '/api/doctors');
+    }
+
+    if (!isLocalhost && !isHttps) {
+      return `http://${window.location.hostname}:5001/api/doctors`;
+    }
+  }
+
+  return envUrl
+    ? envUrl.replace('/api/chat', '/api/doctors')
     : 'http://localhost:5001/api/doctors';
 };
 

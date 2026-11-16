@@ -1,10 +1,18 @@
 /**
  * Doctor Backend Service for Frontend
  * Connects Frontend directly to Node.js / Express Backend (/api/doctors) & Supabase
+ * Dynamically resolves backend host for cross-device mobile/laptop testing
  */
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL 
-  ? import.meta.env.VITE_BACKEND_URL.replace('/api/chat', '/api/doctors')
-  : 'http://localhost:5001/api/doctors';
+const getBackendBase = () => {
+  if (typeof window !== 'undefined' && window.location && window.location.hostname !== 'localhost') {
+    return `http://${window.location.hostname}:5001/api/doctors`;
+  }
+  return import.meta.env.VITE_BACKEND_URL
+    ? import.meta.env.VITE_BACKEND_URL.replace('/api/chat', '/api/doctors')
+    : 'http://localhost:5001/api/doctors';
+};
+
+const BACKEND_URL = getBackendBase();
 
 export const fetchDoctorProfileFromBackend = async (doctorId) => {
   try {

@@ -23,6 +23,8 @@ import {
   CheckCircle2,
   Activity,
   ArrowRight,
+  Calendar,
+  Sparkles,
 } from 'lucide-react';
 
 export const DoctorLiveOPDControlRoom = () => {
@@ -84,22 +86,34 @@ export const DoctorLiveOPDControlRoom = () => {
     dateAppointments[0] ||
     null;
 
-  // Date Navigation Handlers
-  const handlePrevDay = () => {
-    const cur = new Date(selectedDate);
-    cur.setDate(cur.getDate() - 1);
-    setSelectedDate(cur.toISOString().split('T')[0]);
+  // Quick Calendar Strip Dates (Yesterday, Today, Tomorrow, +2, +3)
+  const getCalendarStrip = () => {
+    const base = new Date();
+    const days = [];
+    for (let i = -1; i <= 3; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      const iso = d.toISOString().split('T')[0];
+      const count = docAppointments.filter((a) => {
+        const aptDate = a.date || a.slot_date;
+        const isDemo = a.is_demo || a.is_instant || /instant|demo/i.test(a.slot_time || '');
+        if (i === 0 && isDemo) return true;
+        return aptDate === iso;
+      }).length;
+
+      days.push({
+        iso,
+        dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNum: d.getDate(),
+        month: d.toLocaleDateString('en-US', { month: 'short' }),
+        count,
+        isToday: i === 0,
+      });
+    }
+    return days;
   };
 
-  const handleNextDay = () => {
-    const cur = new Date(selectedDate);
-    cur.setDate(cur.getDate() + 1);
-    setSelectedDate(cur.toISOString().split('T')[0]);
-  };
-
-  const handleTodayClick = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
-  };
+  const calendarDays = getCalendarStrip();
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -153,244 +167,243 @@ export const DoctorLiveOPDControlRoom = () => {
     }
   };
 
-  // Determine target for "Open Consultation Chamber"
   const consultationTarget = inSessionPatient || activeFocusPatient;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12 font-sans">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 pb-12 font-sans px-1 sm:px-0">
+      
       {/* =========================================================================
-          1. WELCOME / QUEUE TOP BANNER (Exact Match with Doctor Dashboard)
+          1. TOP LIVE OPD CONTROL BAR (Distinctive, Sleek & Fully Responsive)
           ========================================================================= */}
-      <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-        
-        {/* Doctor & Chamber Details */}
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="relative shrink-0">
-            <img
-              src={
-                activeDoctor?.avatar_url ||
-                'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'
-              }
-              alt={activeDoctor?.name || 'Doctor'}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-white shadow-xs"
-            />
-            <span
-              className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
-                isOPDOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
-              }`}
-            />
-          </div>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1B2559] via-[#243374] to-[#3B489E] text-white p-5 sm:p-7 shadow-lg">
+        {/* Soft Ambient Background Elements */}
+        <div className="absolute -top-16 -right-16 w-60 h-60 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 left-1/3 w-48 h-48 rounded-full bg-indigo-400/20 blur-3xl pointer-events-none" />
 
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-black text-[#1F1F1F] font-heading truncate">
-                Live OPD Queue Control
-              </h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#F2F5FF] text-[#4C5BBD] border border-[#DCE5FA]">
-                <Activity className="w-3 h-3" />
-                <span>{activeDoctor?.room_number || 'Room 101'}</span>
-              </span>
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          {/* Doctor Info & Chamber Badge */}
+          <div className="flex items-center gap-3.5 sm:gap-4.5 min-w-0">
+            <div className="relative shrink-0">
+              <img
+                src={
+                  activeDoctor?.avatar_url ||
+                  'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'
+                }
+                alt={activeDoctor?.name || 'Doctor'}
+                className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl object-cover shadow-md border-2 border-white/20"
+              />
+              <span
+                className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#1B2559] ${
+                  isOPDOpen ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
+                }`}
+              />
             </div>
 
-            <p className="text-xs text-[#6B6E84] font-medium flex items-center gap-2 flex-wrap">
-              <Building2 className="w-3.5 h-3.5 text-[#4C5BBD] shrink-0" />
-              <span>{activeDoctor?.name || 'Doctor'}</span>
-              <span>•</span>
-              <span>{activeDoctor?.specialty || 'General Medicine'}</span>
-              <span>•</span>
-              <span className="text-[#4C5BBD] font-bold">
-                {dateAppointments.length} Patient{dateAppointments.length === 1 ? '' : 's'} on {isTodaySelected ? 'Today' : formatDate(selectedDate)}
-              </span>
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-2xl font-black font-heading tracking-tight truncate text-white">
+                  Live OPD Queue
+                </h1>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/20 text-white backdrop-blur-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span>{activeDoctor?.room_number || 'Chamber 101'}</span>
+                </span>
+              </div>
+
+              <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 flex-wrap">
+                <span>{activeDoctor?.name || 'Doctor'}</span>
+                <span>•</span>
+                <span className="text-indigo-200">{activeDoctor?.specialty || 'General Medicine'}</span>
+                <span>•</span>
+                <span className="text-emerald-300 font-bold">
+                  {dateAppointments.length} Patient{dateAppointments.length === 1 ? '' : 's'} Total
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Actions (OPD Status & Return Button) */}
+          <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-between md:justify-end">
+            <button
+              type="button"
+              onClick={() => setIsOPDOpen((p) => !p)}
+              className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border-0 shadow-sm active:scale-95 ${
+                isOPDOpen
+                  ? 'bg-emerald-500/20 text-emerald-300 backdrop-blur-md hover:bg-emerald-500/30'
+                  : 'bg-rose-500/20 text-rose-300 backdrop-blur-md hover:bg-rose-500/30'
+              }`}
+            >
+              <Radio className={`w-3.5 h-3.5 ${isOPDOpen ? 'text-emerald-400 animate-pulse' : 'text-rose-400'}`} />
+              <span>{isOPDOpen ? 'OPD Active' : 'OPD Paused'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/doctor-dashboard')}
+              className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0 backdrop-blur-md"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden xs:inline">Dashboard</span>
+            </button>
+          </div>
+        </div>
+
+        {/* =========================================================================
+            IMPRESSIVE INTERACTIVE CALENDAR DATE SELECTOR STRIP
+            Modern horizontal day-picker with appointment count indicator
+            ========================================================================= */}
+        <div className="mt-6 pt-5 border-t border-white/15">
+          <div className="flex items-center justify-between gap-3 mb-2.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-white/80 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-indigo-300" />
+              <span>Select OPD Session</span>
+            </span>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="bg-white/10 text-white text-[11px] font-bold rounded-lg px-2.5 py-1 border-0 outline-none cursor-pointer hover:bg-white/20 transition-colors"
+                title="Choose custom date"
+              />
+            </div>
+          </div>
+
+          {/* Interactive Date Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
+            {calendarDays.map((d) => {
+              const isSelected = selectedDate === d.iso;
+              return (
+                <button
+                  key={d.iso}
+                  type="button"
+                  onClick={() => setSelectedDate(d.iso)}
+                  className={`flex flex-col items-center justify-center min-w-[70px] sm:min-w-[84px] py-2.5 px-3 rounded-2xl transition-all border-0 cursor-pointer text-center relative shrink-0 ${
+                    isSelected
+                      ? 'bg-white text-[#1B2559] shadow-md scale-102 font-black'
+                      : 'bg-white/10 hover:bg-white/15 text-white/90 backdrop-blur-md'
+                  }`}
+                >
+                  <span className={`text-[10px] uppercase font-bold tracking-wider ${isSelected ? 'text-[#4C5BBD]' : 'text-indigo-200'}`}>
+                    {d.isToday ? 'Today' : d.dayName}
+                  </span>
+                  <span className="text-lg font-black leading-tight my-0.5">
+                    {d.dayNum}
+                  </span>
+                  <span className={`text-[9px] font-medium ${isSelected ? 'text-slate-600' : 'text-white/70'}`}>
+                    {d.count > 0 ? `${d.count} booked` : 'No visits'}
+                  </span>
+
+                  {d.count > 0 && !isSelected && (
+                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          2. MINIMAL TELEMETRY STRIP (Clean Modern KPI Pills)
+          ========================================================================= */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider block">Today's Patients</span>
+            <p className="text-xl sm:text-2xl font-black text-[#1F1F1F] mt-0.5">{dateAppointments.length}</p>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#4C5BBD] flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider block">Waiting Line</span>
+            <p className="text-xl sm:text-2xl font-black text-amber-600 mt-0.5">{waitingList.length}</p>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <Clock className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-xs flex items-center justify-between">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider block">In Chamber</span>
+            <p className="text-lg sm:text-xl font-black text-emerald-600 truncate mt-0.5">
+              {inSessionPatient ? inSessionPatient.token_number : 'Ready'}
             </p>
           </div>
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <Radio className="w-4 h-4" />
+          </div>
         </div>
 
-        {/* Right Action Controls: Return to Dashboard & OPD Active Toggle */}
-        <div className="flex items-center gap-3 self-stretch md:self-auto shrink-0 flex-wrap sm:flex-nowrap">
-          <button
-            type="button"
-            onClick={() => setIsOPDOpen((p) => !p)}
-            className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 ${
-              isOPDOpen
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : 'bg-amber-50 text-amber-800 border-amber-200'
-            }`}
-          >
-            <Radio className={`w-3.5 h-3.5 ${isOPDOpen ? 'text-emerald-600 animate-pulse' : 'text-amber-600'}`} />
-            <span>{isOPDOpen ? 'OPD Active' : 'OPD Paused'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate('/doctor-dashboard')}
-            style={{ outline: 'none' }}
-            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-full bg-[#F8FAFE] hover:bg-[#EEF2FF] text-[#4C5BBD] border border-slate-200/80 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Doctor Dashboard</span>
-          </button>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider block">Completed</span>
+            <p className="text-xl sm:text-2xl font-black text-slate-800 mt-0.5">{completedList.length}</p>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
         </div>
-
       </div>
 
       {/* =========================================================================
-          2. KPI SUMMARY STRIP (Exact Same 4-Card Grid as Doctor Dashboard)
+          3. SEARCH & QUEUE CONTROLS
           ========================================================================= */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs flex items-center justify-between gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search patient name, token number, or mobile..."
+            className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F8FAFE] text-xs font-medium focus:bg-white focus:outline-none transition-all border-0"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleManualRefresh}
+          className="p-2 sm:px-3 sm:py-2 rounded-xl bg-[#F8FAFE] hover:bg-[#EEF2FF] text-[#4C5BBD] text-xs font-bold transition-all border-0 cursor-pointer flex items-center gap-1.5 shrink-0"
+          title="Refresh Queue"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Refresh</span>
+        </button>
+      </div>
+
+      {/* =========================================================================
+          4. WORKSPACE: PATIENT QUEUE (Left 7 cols) & ACTIVE CALL DESK (Right 5 cols)
+          Fully responsive stack on mobile screens
+          ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
-        {/* Metric 1: Total Patients for Selected Date */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">
-              Total Queue
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#4C5BBD] flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-black text-[#1F1F1F] font-sans">{dateAppointments.length}</p>
-          <p className="text-[11px] text-[#6B6E84]">{isTodaySelected ? 'Patients today' : formatDate(selectedDate)}</p>
-        </div>
-
-        {/* Metric 2: Waiting in Queue */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">
-              Waiting Now
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-black text-amber-600 font-sans">{waitingList.length}</p>
-          <p className="text-[11px] text-[#6B6E84]">Next up in line</p>
-        </div>
-
-        {/* Metric 3: In Consultation */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">
-              In Consultation
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Radio className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-emerald-600 font-sans truncate whitespace-nowrap">
-            {inSessionPatient ? inSessionPatient.token_number : 'Chamber Open'}
-          </p>
-          <p className="text-[11px] text-[#6B6E84] truncate">
-            {inSessionPatient ? inSessionPatient.patient_name : 'No active visit'}
-          </p>
-        </div>
-
-        {/* Metric 4: Completed Visits */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">
-              Completed
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-black text-slate-800 font-sans">{completedList.length}</p>
-          <p className="text-[11px] text-[#6B6E84]">Finished consultations</p>
-        </div>
-
-      </div>
-
-      {/* =========================================================================
-          3. DATE SELECTOR & SEARCH TOOLBAR (Unified with Dashboard Card Style)
-          ========================================================================= */}
-      <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Date Selector Navigation */}
-        <div className="flex items-center gap-1.5 bg-[#F8FAFE] p-1 rounded-xl border border-slate-200/80 w-full sm:w-auto justify-between sm:justify-start">
-          <button
-            type="button"
-            onClick={handlePrevDay}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-[#4C5BBD] hover:bg-white border-0 cursor-pointer"
-            title="Previous Day"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={handleTodayClick}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold border-0 cursor-pointer transition-all ${
-              isTodaySelected ? 'bg-[#4C5BBD] text-white shadow-2xs' : 'text-slate-700 hover:bg-white'
-            }`}
-          >
-            {isTodaySelected ? 'Today' : formatDate(selectedDate)}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleNextDay}
-            className="p-1.5 rounded-lg text-slate-600 hover:text-[#4C5BBD] hover:bg-white border-0 cursor-pointer"
-            title="Next Day"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Search Bar & Refresh Button */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search patient, token..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-[#F8FAFE] text-xs font-medium focus:bg-white focus:outline-none focus:border-[#4C5BBD] transition-all"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleManualRefresh}
-            className="p-2 rounded-xl text-slate-600 hover:text-[#4C5BBD] hover:bg-[#F2F5FF] border border-slate-200/80 transition-colors cursor-pointer shrink-0"
-            title="Refresh Queue"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#4C5BBD]' : ''}`} />
-          </button>
-        </div>
-      </div>
-
-      {/* =========================================================================
-          4. MAIN 2-COLUMN CLINICAL WORKSPACE (Aligned with Dashboard Grid)
-          Left 2/3 (7 cols): Patient Queue List
-          Right 1/3 (5 cols): Active Patient Summary & Essential Queue Actions
-          ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* LEFT COLUMN (7 cols): PATIENT QUEUE */}
-        <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-4">
+        {/* LEFT COLUMN: Queue Patients List */}
+        <div className="lg:col-span-7 bg-white rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-black text-[#1F1F1F] font-heading flex items-center gap-2">
-                <span>Patient Queue ({searchedAppointments.length})</span>
-                <span className="text-xs font-normal text-[#6B6E84] font-sans">
-                  • {formatDate(selectedDate)}
-                </span>
+                <span>Patient Queue</span>
+                <span className="text-xs font-normal text-[#6B6E84]">({searchedAppointments.length})</span>
               </h3>
               <p className="text-xs text-[#6B6E84] font-medium">
-                Live line-up of scheduled visits and chamber queue
+                Tap any patient to inspect records and call into chamber
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                {waitingList.length} Waiting
-              </span>
-            </div>
+            <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full">
+              {waitingList.length} Left to Attend
+            </span>
           </div>
 
-          {/* Patient Cards List */}
           {searchedAppointments.length > 0 ? (
-            <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 overflow-hidden">
+            <div className="space-y-2">
               {searchedAppointments.map((apt) => {
                 const isSelected = apt.id === activeFocusPatient?.id;
                 const isServing = apt.status === 'In Session';
@@ -401,32 +414,31 @@ export const DoctorLiveOPDControlRoom = () => {
                   <div
                     key={apt.id}
                     onClick={() => setSelectedPatientId(apt.id)}
-                    className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                    className={`p-3.5 sm:p-4 rounded-2xl transition-all cursor-pointer flex items-center justify-between gap-3 ${
                       isSelected
-                        ? 'bg-[#EEF2FF]/80 ring-1 ring-[#4C5BBD]/30'
+                        ? 'bg-[#EEF2FF] shadow-xs ring-2 ring-[#4C5BBD]/30'
                         : isServing
-                        ? 'bg-emerald-50/60'
+                        ? 'bg-emerald-50/70'
                         : isNext
-                        ? 'bg-amber-50/50'
+                        ? 'bg-amber-50/60'
                         : isDone
-                        ? 'bg-slate-50/60 opacity-60'
-                        : 'bg-white hover:bg-[#F8FAFE]'
+                        ? 'bg-slate-50 opacity-60'
+                        : 'bg-[#F8FAFE] hover:bg-slate-100/70'
                     }`}
                   >
-                    {/* Left: Token Number + Patient Name + Scheduled Time */}
+                    {/* Patient Token & Identity */}
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* Horizontal non-wrapping token badge */}
                       <span
-                        className={`inline-flex items-center justify-center px-3 py-1 rounded-xl text-xs font-black font-sans shrink-0 border whitespace-nowrap ${
+                        className={`inline-flex items-center justify-center px-3 py-1.5 rounded-xl text-xs font-black font-sans shrink-0 whitespace-nowrap ${
                           isServing
-                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            ? 'bg-emerald-600 text-white shadow-xs'
                             : isNext
-                            ? 'bg-amber-500 text-white border-amber-500'
+                            ? 'bg-amber-500 text-white shadow-xs'
                             : isSelected
-                            ? 'bg-[#4C5BBD] text-white border-[#4C5BBD]'
+                            ? 'bg-[#4C5BBD] text-white shadow-xs'
                             : isDone
-                            ? 'bg-slate-100 text-slate-500 border-slate-200'
-                            : 'bg-[#F2F5FF] text-[#4C5BBD] border-[#DCE5FA]'
+                            ? 'bg-slate-200 text-slate-600'
+                            : 'bg-white text-[#4C5BBD] shadow-2xs'
                         }`}
                       >
                         {apt.token_number}
@@ -438,11 +450,12 @@ export const DoctorLiveOPDControlRoom = () => {
                             {apt.patient_name}
                           </h4>
                           {isNext && (
-                            <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
+                            <span className="text-[9px] font-black uppercase px-2 py-0.2 rounded-full bg-amber-100 text-amber-800">
                               Next
                             </span>
                           )}
                         </div>
+
                         <p className="text-[11px] text-[#6B6E84] flex items-center gap-2 truncate">
                           <Clock className="w-3 h-3 text-[#6B6E84]" />
                           <span>{apt.slot_time || apt.time}</span>
@@ -456,100 +469,104 @@ export const DoctorLiveOPDControlRoom = () => {
                       </div>
                     </div>
 
-                    {/* Right: Status Badge */}
+                    {/* Status Pill */}
                     <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 border whitespace-nowrap ${
+                      className={`px-3 py-1 rounded-full text-[10px] font-bold shrink-0 whitespace-nowrap ${
                         isServing
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          ? 'bg-emerald-100 text-emerald-800 font-black'
                           : isNext
-                          ? 'bg-amber-100 text-amber-900 border-amber-200'
+                          ? 'bg-amber-100 text-amber-900 font-black'
                           : isDone
-                          ? 'bg-slate-100 text-slate-600 border-slate-200'
-                          : 'bg-blue-50 text-[#4C5BBD] border-blue-100'
+                          ? 'bg-slate-200 text-slate-600'
+                          : 'bg-blue-50 text-[#4C5BBD]'
                       }`}
                     >
-                      {isServing ? 'In Consultation' : isNext ? 'Next in Line' : isDone ? 'Completed' : 'Waiting'}
+                      {isServing ? 'In Consultation' : isNext ? 'Next Up' : isDone ? 'Done' : 'Waiting'}
                     </span>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="py-12 text-center text-xs text-[#6B6E84] bg-[#F8FAFE] rounded-2xl border border-slate-200/70 p-4">
-              No patients found for this date.
+            <div className="py-12 text-center text-xs text-[#6B6E84] bg-[#F8FAFE] rounded-2xl p-6">
+              No patients found in queue for this date.
             </div>
           )}
         </div>
 
-        {/* RIGHT COLUMN (5 cols): ACTIVE PATIENT SUMMARY & ESSENTIAL QUEUE ACTIONS */}
-        <div className="lg:col-span-5 space-y-5">
-          
-          {/* Active Patient Card */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-4">
+        {/* RIGHT COLUMN: Active Patient Focal Desk */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">
-                Active Patient Summary
+                Chamber Focal Desk
               </span>
               {activeFocusPatient && (
                 <span
                   className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                     activeFocusPatient.status === 'In Session'
-                      ? 'bg-emerald-100 text-emerald-800'
+                      ? 'bg-emerald-100 text-emerald-800 font-black'
                       : 'bg-[#F2F5FF] text-[#4C5BBD]'
                   }`}
                 >
-                  {activeFocusPatient.status === 'In Session' ? 'Currently Consulting' : 'Selected'}
+                  {activeFocusPatient.status === 'In Session' ? 'Active Consultation' : 'Selected Patient'}
                 </span>
               )}
             </div>
 
             {activeFocusPatient ? (
               <div className="space-y-4">
-                {/* Minimal Patient Card: Name, Token, Time */}
-                <div className="p-4 rounded-2xl bg-[#F8FAFE] border border-slate-200/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-base font-black text-[#1F1F1F]">
+                {/* Minimalist Patient Summary Surface */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAFE] space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-base sm:text-lg font-black text-[#1F1F1F] truncate">
                         {activeFocusPatient.patient_name}
                       </h3>
-                      <p className="text-xs text-[#6B6E84] flex items-center gap-1 mt-0.5 font-medium">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <p className="text-xs text-[#6B6E84] flex items-center gap-1.5 mt-0.5">
+                        <Clock className="w-3.5 h-3.5 text-[#4C5BBD]" />
                         <span>Scheduled: <strong className="text-[#1F1F1F]">{activeFocusPatient.slot_time || activeFocusPatient.time}</strong></span>
                       </p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <span className="text-[10px] font-bold text-slate-500 uppercase block">Token</span>
-                      <span className="text-xl font-black text-[#4C5BBD] font-mono whitespace-nowrap">
+                      <span className="text-xl sm:text-2xl font-black text-[#4C5BBD] font-mono">
                         {activeFocusPatient.token_number}
                       </span>
                     </div>
                   </div>
 
-                  <div className="pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
+                  <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
                     <span>Chamber: <strong className="text-slate-800">{activeDoctor?.room_number || 'Room 101'}</strong></span>
                     <span>Status: <strong className={activeFocusPatient.status === 'In Session' ? 'text-emerald-700' : 'text-[#4C5BBD]'}>{activeFocusPatient.status || 'Waiting'}</strong></span>
                   </div>
+
+                  {activeFocusPatient.reason && (
+                    <div className="pt-1 text-xs text-slate-700">
+                      <span className="text-[#6B6E84]">Chief Complaint:</span> {activeFocusPatient.reason}
+                    </div>
+                  )}
                 </div>
 
-                {/* ESSENTIAL QUEUE ACTIONS (Exact Same Rounded Button Design) */}
+                {/* TWO MASTER ACTIONS: Call Next & Enter Chamber */}
                 <div className="space-y-2.5 pt-1">
                   {/* Action 1: Call Next Patient */}
                   <button
                     type="button"
                     disabled={!nextWaitingPatient || isCallingNext}
                     onClick={() => handleCallPatient(nextWaitingPatient)}
-                    className={`w-full py-3 px-4 rounded-full text-xs font-black shadow-xs transition-all border-0 cursor-pointer flex items-center justify-center gap-2 ${
+                    className={`w-full py-3.5 px-5 rounded-full text-xs font-black transition-all border-0 cursor-pointer flex items-center justify-center gap-2 active:scale-95 shadow-xs ${
                       nextWaitingPatient && !isCallingNext
-                        ? 'bg-[#4C5BBD] hover:bg-[#3B489E] text-white cursor-pointer'
+                        ? 'bg-[#4C5BBD] hover:bg-[#3B489E] text-white'
                         : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                   >
                     <PhoneCall className="w-4 h-4" />
                     <span>
                       {nextWaitingPatient
-                        ? `Call Next Patient (Token ${nextWaitingPatient.token_number})`
-                        : 'No Patients Waiting in Line'}
+                        ? `Call Next Patient (${nextWaitingPatient.token_number})`
+                        : 'No Waiting Patients in Line'}
                     </span>
                   </button>
 
@@ -562,46 +579,28 @@ export const DoctorLiveOPDControlRoom = () => {
                         navigate(`/patients/consultation/${consultationTarget.id}`);
                       }
                     }}
-                    className={`w-full py-3 px-4 rounded-full text-xs font-black shadow-xs transition-all border cursor-pointer flex items-center justify-center gap-2 ${
+                    className={`w-full py-3.5 px-5 rounded-full text-xs font-black transition-all border-0 cursor-pointer flex items-center justify-center gap-2 active:scale-95 shadow-md ${
                       consultationTarget
-                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                        : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                   >
                     <DoorOpen className="w-4 h-4" />
                     <span>Open Consultation Chamber</span>
-                    <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="py-12 text-center text-xs text-slate-500">
-                No patient selected.
+              <div className="py-12 text-center text-xs text-[#6B6E84]">
+                Select a patient from the queue to manage.
               </div>
             )}
           </div>
-
-          {/* Quick Shortcuts (Matching Dashboard Sidebar) */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs space-y-3">
-            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">OPD Navigation</span>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => navigate('/doctor-dashboard')}
-                className="w-full p-3 rounded-2xl bg-[#F8FAFE] hover:bg-[#EEF2FF] text-left text-xs font-bold text-[#1F1F1F] flex items-center justify-between transition-colors cursor-pointer border-0"
-              >
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-[#4C5BBD]" />
-                  <span>Return to Doctor Dashboard Overview</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-[#6B6E84]" />
-              </button>
-            </div>
-          </div>
-
         </div>
 
       </div>
+
     </div>
   );
 };

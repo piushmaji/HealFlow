@@ -139,8 +139,32 @@ export const LiveQueueTracker = ({ appointment }) => {
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
+  // Polling fallback every 2.5s to guarantee instantaneous sync across devices (mobile + laptop)
+  useEffect(() => {
+    if (!currentApt?.id) return;
+    const interval = setInterval(async () => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase
+            .from('appointments')
+            .select('*')
+            .eq('id', currentApt.id)
+            .maybeSingle();
+          if (data && data.status !== liveAppointment?.status) {
+            setLiveAppointment((prev) => ({ ...prev, ...data }));
+            if (updateAppointmentStatus) {
+              updateAppointmentStatus(data.id, data.status);
+            }
+          }
+        } catch (e) {}
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [currentApt?.id, liveAppointment?.status, updateAppointmentStatus]);
+
   const handleEnterConsultationRoom = () => {
-    if (!timeCheck.isActive) {
+    // If doctor has admitted the patient into chamber, allow entry directly
+    if (!isInSession && !timeCheck.isActive) {
       showToast(`Chamber locked: ${timeCheck.message}`, 'warning');
       return;
     }

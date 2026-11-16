@@ -4,7 +4,14 @@
  * with graceful fallback to browser-side triage if backend is offline.
  */
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001/api/chat';
+const getChatbotBase = () => {
+  if (typeof window !== 'undefined' && window.location && window.location.hostname !== 'localhost') {
+    return `http://${window.location.hostname}:5001/api/chat`;
+  }
+  return import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001/api/chat';
+};
+
+const API_BASE_URL = getChatbotBase();
 
 export const sendChatbotMessage = async (message, sessionId = null) => {
   try {

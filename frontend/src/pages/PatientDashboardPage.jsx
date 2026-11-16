@@ -103,11 +103,11 @@ export const PatientDashboardPage = () => {
       />
 
       {/* =========================================================================
-          TOP BAR: Identity & Quick Actions
+          TOP BAR: Identity & Quick Actions (Premium Minimal Surface)
           ========================================================================= */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-[#EEF2FF] text-[#4C5BBD] border border-[#DCE5FA] flex items-center justify-center font-black text-base shrink-0 shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-[#EEF2FF] text-[#4C5BBD] flex items-center justify-center font-black text-lg shrink-0">
             {patientUser?.name ? patientUser.name.charAt(0).toUpperCase() : 'P'}
           </div>
           <div>
@@ -115,7 +115,7 @@ export const PatientDashboardPage = () => {
               <h1 className="text-base sm:text-lg font-black text-[#1F1F1F] font-heading">
                 Welcome back, {patientUser?.name || 'Patient'}
               </h1>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
                 Verified
               </span>
             </div>
@@ -131,11 +131,11 @@ export const PatientDashboardPage = () => {
         </div>
 
         {/* Action Pills */}
-        <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+        <div className="flex items-center gap-2.5 self-stretch sm:self-auto shrink-0">
           <button
             type="button"
             onClick={() => navigate('/doctors')}
-            className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold transition-all shadow-xs border-0 cursor-pointer flex items-center justify-center gap-1.5"
+            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] active:scale-95 text-white text-xs font-bold transition-all shadow-xs border-0 cursor-pointer flex items-center justify-center gap-1.5"
           >
             <Stethoscope className="w-3.5 h-3.5" />
             <span>Book Doctor</span>
@@ -144,7 +144,7 @@ export const PatientDashboardPage = () => {
           <button
             type="button"
             onClick={() => navigate('/patients/profile')}
-            className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-[#F8FAFE] hover:bg-[#EEF2FF] text-[#4C5BBD] border border-slate-200/80 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            className="flex-1 sm:flex-initial px-4 py-2.5 rounded-full bg-[#F8FAFE] hover:bg-[#EEF2FF] text-[#4C5BBD] text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
           >
             <User className="w-3.5 h-3.5" />
             <span>Profile</span>
@@ -152,12 +152,12 @@ export const PatientDashboardPage = () => {
         </div>
       </div>
 
-      {/* Medical Profile Pending Alert Banner (If not completed) */}
+      {/* Medical Profile Pending Alert Banner */}
       {!patientUser?.hasCompletedMedicalDetails && (
-        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-              <AlertCircle className="w-4 h-4" />
+        <div className="p-4 rounded-2xl bg-amber-50/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-4.5 h-4.5" />
             </div>
             <div>
               <h4 className="text-xs font-bold text-amber-950 font-heading">
@@ -172,107 +172,156 @@ export const PatientDashboardPage = () => {
           <button
             type="button"
             onClick={() => setIsOnboardingModalOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-all border-0 cursor-pointer self-end sm:self-auto"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-all border-0 cursor-pointer self-end sm:self-auto"
           >
             <span>Complete Details</span>
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
       {/* =========================================================================
-          ACTIVE LIVE CONSULTATION / QUEUE BANNER (Primary Focal Point)
-          Redesigned clean, modern, and aligned layout
+          ACTIVE LIVE CONSULTATION / QUEUE BANNER (PREMIUM LUXURY DESIGN)
+          Frameless modern surface, soft ambient glow, human craftsmanship
           ========================================================================= */}
       {primaryAppointment ? (
         <div
-          className={`rounded-2xl p-5 sm:p-6 border transition-all duration-200 shadow-2xs space-y-4 ${
+          className={`relative overflow-hidden rounded-3xl p-6 sm:p-7 transition-all duration-300 ${
             isPrimaryInSession
-              ? 'bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/30 border-emerald-300 ring-2 ring-emerald-500/20'
-              : 'bg-white border-slate-200/90 hover:border-slate-300'
+              ? 'bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 text-white shadow-xl shadow-emerald-600/15'
+              : 'bg-white shadow-sm hover:shadow-md'
           }`}
         >
-          {/* Header Row: Live Status Pill, Token Badge, and Date/Time */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3.5 border-b border-slate-100">
+          {/* Subtle Ambient Background Accent */}
+          {isPrimaryInSession ? (
+            <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          ) : (
+            <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-[#4C5BBD]/5 blur-2xl pointer-events-none" />
+          )}
+
+          {/* Top Pill Strip */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-white/15">
             <div className="flex items-center gap-2.5 flex-wrap">
               {isPrimaryInSession ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
-                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                  <span>Doctor Admitted — Your Turn Now!</span>
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 backdrop-blur-md text-white shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-300 animate-ping" />
+                  <span>Doctor Admitted • Consultation Ready</span>
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#F2F5FF] text-[#4C5BBD] border border-[#DCE5FA]">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold bg-[#EEF2FF] text-[#4C5BBD]">
                   <span className="w-2 h-2 rounded-full bg-[#4C5BBD] animate-pulse" />
-                  <span>In Queue</span>
+                  <span>Waiting in Live Queue</span>
                 </span>
               )}
 
-              <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-slate-700 bg-slate-100/80 px-2.5 py-0.5 rounded-lg border border-slate-200">
-                <Ticket className="w-3.5 h-3.5 text-[#4C5BBD]" />
-                <span>Token #{primaryAppointment.token_number}</span>
+              {/* Minimal Clean Token Badge */}
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-black tracking-wide ${
+                  isPrimaryInSession
+                    ? 'bg-black/20 text-white'
+                    : 'bg-[#F8FAFE] text-[#4C5BBD]'
+                }`}
+              >
+                <span>Token</span>
+                <span className="text-sm">#{primaryAppointment.token_number}</span>
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#6B6E84]">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-[#4C5BBD]" />
+            {/* Date & Time */}
+            <div
+              className={`flex items-center gap-2 text-xs font-medium ${
+                isPrimaryInSession ? 'text-emerald-100' : 'text-[#6B6E84]'
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5" />
                 <span>{formatDate(primaryAppointment.date || primaryAppointment.slot_date)}</span>
               </span>
               <span>•</span>
-              <span className="flex items-center gap-1 font-bold text-slate-800">
-                <Clock className="w-3.5 h-3.5 text-[#4C5BBD]" />
+              <span className="flex items-center gap-1.5 font-bold">
+                <Clock className="w-3.5 h-3.5" />
                 <span>{primaryAppointment.time || primaryAppointment.slot_time || 'Scheduled Slot'}</span>
               </span>
             </div>
           </div>
 
-          {/* Main Card Body: Doctor Info + Action Buttons */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          {/* Main Card Content */}
+          <div className="pt-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
             {/* Doctor Info */}
-            <div className="flex items-center gap-3.5 min-w-0">
-              <img
-                src={
-                  primaryAppointment.doctor_avatar ||
-                  'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'
-                }
-                alt={primaryAppointment.doctor_name || 'Doctor'}
-                className="w-13 h-13 rounded-2xl object-cover border border-slate-200/80 shadow-2xs shrink-0"
-              />
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="relative shrink-0">
+                <img
+                  src={
+                    primaryAppointment.doctor_avatar ||
+                    'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'
+                  }
+                  alt={primaryAppointment.doctor_name || 'Doctor'}
+                  className="w-14 h-14 rounded-2xl object-cover shadow-sm"
+                />
+                <span
+                  className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 ${
+                    isPrimaryInSession ? 'bg-emerald-300 border-emerald-700' : 'bg-emerald-500 border-white'
+                  }`}
+                />
+              </div>
 
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base sm:text-lg font-black text-[#1F1F1F] font-heading truncate">
+                  <h2
+                    className={`text-lg sm:text-xl font-black font-heading truncate ${
+                      isPrimaryInSession ? 'text-white' : 'text-[#1F1F1F]'
+                    }`}
+                  >
                     {primaryAppointment.doctor_name || 'Doctor Specialist'}
                   </h2>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-[#F2F5FF] text-[#4C5BBD] border border-[#DCE5FA]">
+
+                  <span
+                    className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                      isPrimaryInSession
+                        ? 'bg-white/20 text-white'
+                        : 'bg-[#EEF2FF] text-[#4C5BBD]'
+                    }`}
+                  >
                     {primaryAppointment.specialty}
                   </span>
                 </div>
 
-                <p className="text-xs text-[#6B6E84] flex items-center gap-1.5 font-medium flex-wrap">
-                  <Building2 className="w-3.5 h-3.5 text-[#4C5BBD] shrink-0" />
+                <p
+                  className={`text-xs flex items-center gap-2 font-medium flex-wrap ${
+                    isPrimaryInSession ? 'text-emerald-100' : 'text-[#6B6E84]'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5 shrink-0 opacity-80" />
                   <span>{primaryAppointment.hospital || 'HealFlow OPD Clinic'}</span>
                   <span>•</span>
-                  <span>Chamber: <strong className="text-[#1F1F1F]">{primaryAppointment.room_number || 'Room 101'}</strong></span>
+                  <span>Chamber: <strong>{primaryAppointment.room_number || 'Room 101'}</strong></span>
                 </p>
 
                 {primaryAppointment.reason && (
-                  <p className="text-xs text-slate-700 font-medium truncate">
-                    <span className="text-[#6B6E84]">Concern:</span> {primaryAppointment.reason}
+                  <p
+                    className={`text-xs truncate pt-0.5 ${
+                      isPrimaryInSession ? 'text-white/80' : 'text-slate-600'
+                    }`}
+                  >
+                    <span className="opacity-70">Concern:</span> {primaryAppointment.reason}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* CTAs */}
-            <div className="flex items-center gap-2 w-full md:w-auto shrink-0 flex-wrap">
+            {/* Direct High-Contrast Action CTAs */}
+            <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-wrap">
               <button
                 type="button"
                 onClick={() => navigate(`/patients/live-queue/${primaryAppointment.id}`)}
-                className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-white hover:bg-[#F8FAFE] text-[#4C5BBD] border border-[#4C5BBD]/30 hover:border-[#4C5BBD] text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center justify-center gap-1.5"
+                className={`flex-1 md:flex-initial px-5 py-3 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border-0 ${
+                  isPrimaryInSession
+                    ? 'bg-white/15 hover:bg-white/25 text-white backdrop-blur-md'
+                    : 'bg-[#F8FAFE] hover:bg-[#EEF2FF] text-[#4C5BBD]'
+                }`}
               >
-                <Clock className="w-3.5 h-3.5" />
-                <span>Track Live Turn →</span>
+                <Clock className="w-4 h-4" />
+                <span>Track Queue</span>
               </button>
 
               <button
@@ -288,16 +337,17 @@ export const PatientDashboardPage = () => {
                   }
                   navigate(`/patients/consultation/${primaryAppointment.id}`);
                 }}
-                className={`flex-1 md:flex-initial px-5 py-2.5 rounded-xl text-xs font-bold transition-all border-0 cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`flex-1 md:flex-initial px-6 py-3 rounded-full text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 border-0 shadow-md active:scale-95 ${
                   isPrimaryInSession && primaryTimeCheck.isActive
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-black'
-                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    ? 'bg-white hover:bg-slate-100 text-emerald-900 shadow-white/20'
+                    : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                 }`}
               >
                 {isPrimaryInSession && primaryTimeCheck.isActive ? (
                   <>
-                    <DoorOpen className="w-4 h-4" />
-                    <span>Enter Chamber Now</span>
+                    <DoorOpen className="w-4 h-4 text-emerald-700" />
+                    <span>Enter Consultation Room</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
                   </>
                 ) : (
                   <>
@@ -310,10 +360,10 @@ export const PatientDashboardPage = () => {
           </div>
         </div>
       ) : (
-        /* Empty Active Appointment */
-        <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#F8FAFE] via-white to-[#F2F5FF] border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        /* Empty State */
+        <div className="p-6 rounded-3xl bg-white shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] text-[#4C5BBD] flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-[#EEF2FF] text-[#4C5BBD] flex items-center justify-center shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
@@ -329,7 +379,7 @@ export const PatientDashboardPage = () => {
           <button
             type="button"
             onClick={() => navigate('/doctors')}
-            className="px-4 py-2 rounded-xl bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold transition-all shadow-xs border-0 cursor-pointer shrink-0"
+            className="px-5 py-2.5 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold transition-all shadow-xs border-0 cursor-pointer shrink-0"
           >
             Find a Doctor
           </button>
@@ -344,7 +394,7 @@ export const PatientDashboardPage = () => {
       {/* =========================================================================
           MY APPOINTMENTS: Clean Table / Cards
           ========================================================================= */}
-      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4">
+      <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
             <h3 className="text-base font-black text-[#1F1F1F] font-heading">
@@ -374,8 +424,8 @@ export const PatientDashboardPage = () => {
       {/* =========================================================================
           HELP & SUPPORT FOOTER
           ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-        <div className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+        <div className="p-4 rounded-2xl bg-white shadow-2xs flex items-center justify-between">
           <div className="space-y-0.5">
             <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">Health ID</span>
             <p className="text-xs font-mono font-bold text-[#4C5BBD]">
@@ -393,7 +443,7 @@ export const PatientDashboardPage = () => {
 
         <a
           href="tel:1800432535"
-          className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between hover:bg-slate-50 transition-colors"
+          className="p-4 rounded-2xl bg-white shadow-2xs flex items-center justify-between hover:bg-slate-50 transition-colors"
         >
           <div className="space-y-0.5">
             <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">OPD Helpdesk</span>

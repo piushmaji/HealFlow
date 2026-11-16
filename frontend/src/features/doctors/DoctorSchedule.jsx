@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Check } from 'lucide-react';
+import { Clock, Check, Zap } from 'lucide-react';
 import { TIME_SLOTS } from '../../utils/constants';
 
 export const DoctorSchedule = ({
@@ -8,6 +8,8 @@ export const DoctorSchedule = ({
   selectedSlot,
   onSelectSlot,
   availableSlots = TIME_SLOTS,
+  isInstantDemo = false,
+  onToggleInstantDemo,
 }) => {
   // Generate next 5 available calendar days
   const getNextDays = () => {
@@ -29,6 +31,39 @@ export const DoctorSchedule = ({
 
   return (
     <div className="space-y-4">
+      {/* Instant Demo Presentation Toggle */}
+      {onToggleInstantDemo && (
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Zap className="w-4 h-4 fill-white" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                <span>Instant Connect (Presentation Demo)</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900 font-extrabold uppercase">
+                  Immediate
+                </span>
+              </p>
+              <p className="text-[11px] text-amber-800">
+                Skip time restrictions for immediate doctor-patient chamber connection with live queue.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleInstantDemo}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 cursor-pointer ${
+              isInstantDemo
+                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100/50'
+            }`}
+          >
+            {isInstantDemo ? 'Active: Instant Demo' : 'Enable Instant'}
+          </button>
+        </div>
+      )}
+
       {/* Date selector */}
       <div>
         <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">

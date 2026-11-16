@@ -56,7 +56,7 @@ export const getMatchingDoctors = async (specialty, limit = 3) => {
   try {
     const { data, error } = await supabase
       .from('doctors')
-      .select('id, name, title, specialty, experience_years, hospital, rating, review_count, consultation_fee, room_number, avatar_url, is_active')
+      .select('id, name, title, specialty, experience_years, hospital, rating, review_count, consultation_fee, room_number, avatar_url, bio, is_active')
       .ilike('specialty', `%${cleanSpecialty}%`)
       .eq('is_active', true)
       .limit(limit);
@@ -78,7 +78,9 @@ export const getMatchingDoctors = async (specialty, limit = 3) => {
       consultation_fee: doc.consultation_fee,
       room_number: doc.room_number,
       avatar_url: doc.avatar_url || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400',
+      bio: doc.bio || '',
       booking_url: `/doctors/${doc.id}/book`,
+      profile_url: `/doctors/${doc.id}`,
     }));
 
     return {

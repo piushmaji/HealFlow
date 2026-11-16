@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Flame,
   Info,
+  Zap,
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
@@ -33,19 +34,40 @@ export const BookAppointmentPage = () => {
   const { doctorId } = useParams();
   const navigate = useNavigate();
   const { createAppointment, refreshAppointments } = useQueue();
-  const { patientUser } = useAuth();
+  const { patientUser, isDoctor, activeDoctor } = useAuth();
   const { showToast } = useToast();
 
   const [doctor, setDoctor] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Auto-fill logic from logged-in user profile (doctor or patient)
+  const initialName = isDoctor
+    ? activeDoctor?.name || 'Doctor Appointment'
+    : patientUser?.name || '';
+
+  const initialPhone = isDoctor
+    ? activeDoctor?.phone || patientUser?.phone || '+91 98765 43210'
+    : patientUser?.phone || patientUser?.emergencyContactPhone || '';
+
   // Form State
-  const [patientName, setPatientName] = useState(patientUser?.name || '');
-  const [contactNumber, setContactNumber] = useState(patientUser?.phone || '');
+  const [patientName, setPatientName] = useState(initialName);
+  const [contactNumber, setContactNumber] = useState(initialPhone);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('10:30 AM');
+  const [isInstantDemo, setIsInstantDemo] = useState(false);
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync phone & name if auth loads or profile updates
+  useEffect(() => {
+    if (isDoctor && activeDoctor?.name) {
+      if (!patientName) setPatientName(activeDoctor.name);
+      if (!contactNumber) setContactNumber(activeDoctor.phone || patientUser?.phone || '+91 98765 43210');
+    } else if (patientUser?.name || patientUser?.phone) {
+      if (!patientName && patientUser.name) setPatientName(patientUser.name);
+      if (!contactNumber && patientUser.phone) setContactNumber(patientUser.phone);
+    }
+  }, [isDoctor, activeDoctor, patientUser]);
 
   // Dynamic Live Schedule & Queue Telemetry from Supabase DB & Backend
   const [daySchedule, setDaySchedule] = useState({
@@ -141,24 +163,38 @@ export const BookAppointmentPage = () => {
     );
   }
 
+  // Strict Check: Doctor cannot book an appointment with himself/herself
+  const isSelfBooking = isDoctor && activeDoctor?.id && doctor?.id && (activeDoctor.id === doctor.id || activeDoctor.name === doctor.name);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isSelfBooking) {
+      showToast('Action Prohibited: You cannot book an appointment with yourself.', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
+      const finalSlotTime = isInstantDemo ? 'Instant Demo (Immediate)' : selectedTimeSlot;
+      const finalReason = reason || (isInstantDemo ? 'Instant Presentation Demo' : 'General Health Consultation');
+
       const newApt = await createAppointment({
         doctor_id: doctor.id,
         doctor_name: doctor.name,
         specialty: doctor.specialty,
         hospital: doctor.hospital || 'Smart Clinic',
         room_number: doctor.room_number || 'Room 101',
-        patient_name: patientName || patientUser?.name || 'Patient',
-        patient_email: patientUser?.email || '',
-        patient_phone: contactNumber || patientUser?.phone || '',
+        patient_name: patientName || (isDoctor ? activeDoctor?.name : patientUser?.name) || 'Patient',
+        patient_email: (isDoctor ? activeDoctor?.email : patientUser?.email) || '',
+        patient_phone: contactNumber || (isDoctor ? activeDoctor?.phone : patientUser?.phone) || '',
         date: selectedDate,
-        time: selectedTimeSlot,
-        reason: reason || null,
-        notes: reason || null,
+        time: finalSlotTime,
+        is_demo: isInstantDemo,
+        is_instant: isInstantDemo,
+        reason: finalReason,
+        notes: finalReason,
       });
 
       // Refetch appointments in background so patient dashboard updates immediately
@@ -345,6 +381,47 @@ export const BookAppointmentPage = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
+            {/* Instant Demo Presentation Toggle */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Zap className="w-5 h-5 fill-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-black text-amber-950">Instant Connect (Presentation Demo)</p>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-extrabold uppercase">
+                      Live Queue Active
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
+                    Connect immediately without date/time restrictions for live presentations. Live queue and token tracking still apply!
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const nextVal = !isInstantDemo;
+                  setIsInstantDemo(nextVal);
+                  if (nextVal) {
+                    setSelectedDate(new Date().toISOString().split('T')[0]);
+                    setSelectedTimeSlot('Instant Demo (Immediate)');
+                  } else {
+                    setSelectedTimeSlot('10:30 AM');
+                  }
+                }}
+                className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-black transition-all border shrink-0 cursor-pointer ${
+                  isInstantDemo
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                    : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100/60'
+                }`}
+              >
+                {isInstantDemo ? '✓ Instant Demo Selected' : 'Use Instant Demo'}
+              </button>
+            </div>
+
             {/* Patient Info Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -401,42 +478,61 @@ export const BookAppointmentPage = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {availableTimeSlots.map((slot) => {
-                  const isSelected = selectedTimeSlot === slot;
-                  const queueInSlot = daySchedule.slotQueues[slot] || 0;
-                  const isSlotCrowded = queueInSlot >= 3;
+              {isInstantDemo ? (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Slot override active: <strong>Instant Demo (Immediate Connect)</strong></span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsInstantDemo(false);
+                      setSelectedTimeSlot('10:30 AM');
+                    }}
+                    className="text-[11px] font-bold text-amber-800 underline cursor-pointer"
+                  >
+                    Switch to Standard Slot
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {availableTimeSlots.map((slot) => {
+                    const isSelected = selectedTimeSlot === slot;
+                    const queueInSlot = daySchedule.slotQueues[slot] || 0;
+                    const isSlotCrowded = queueInSlot >= 3;
 
-                  return (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => setSelectedTimeSlot(slot)}
-                      style={{ outline: 'none' }}
-                      className={`py-3 px-3 rounded-2xl text-xs font-bold transition-all shadow-xs border-0 cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                        isSelected
-                          ? 'bg-[#4C5BBD] text-white font-black shadow-xs'
-                          : 'bg-[#F8FAFE] text-[#1F1F1F] hover:bg-[#F2F5FF] hover:text-[#4C5BBD]'
-                      }`}
-                    >
-                      <span>{slot}</span>
-                      <span
-                        className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md ${
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setSelectedTimeSlot(slot)}
+                        style={{ outline: 'none' }}
+                        className={`py-3 px-3 rounded-2xl text-xs font-bold transition-all shadow-xs border-0 cursor-pointer flex flex-col items-center justify-center gap-1 ${
                           isSelected
-                            ? 'bg-white/20 text-white'
-                            : isSlotCrowded
-                            ? 'bg-amber-100 text-amber-800'
-                            : queueInSlot > 0
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-[#4C5BBD] text-white font-black shadow-xs'
+                            : 'bg-[#F8FAFE] text-[#1F1F1F] hover:bg-[#F2F5FF] hover:text-[#4C5BBD]'
                         }`}
                       >
-                        {queueInSlot === 0 ? 'No queue' : `${queueInSlot} in line`}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        <span>{slot}</span>
+                        <span
+                          className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : isSlotCrowded
+                              ? 'bg-amber-100 text-amber-800'
+                              : queueInSlot > 0
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {queueInSlot === 0 ? 'No queue' : `${queueInSlot} in line`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Consultation Reason / Notes */}
@@ -455,16 +551,39 @@ export const BookAppointmentPage = () => {
               ></textarea>
             </div>
 
+            {/* Self Booking Alert if logged-in Doctor tries to book themselves */}
+            {isSelfBooking && (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 space-y-1 animate-fade-in text-xs">
+                <div className="flex items-center gap-2 font-black">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Self-Booking Prohibited</span>
+                </div>
+                <p className="text-[11px] text-rose-700 leading-relaxed">
+                  You are currently logged in as <strong>{activeDoctor.name}</strong>. A doctor cannot book an appointment with their own profile. You can freely book consultations with other specialist colleagues across HealFlow.
+                </p>
+              </div>
+            )}
+
             {/* Submit Confirmation Button */}
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSelfBooking}
                 style={{ outline: 'none' }}
-                className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-full bg-[#4C5BBD] text-white text-sm font-black shadow-xs hover:bg-[#3B489E] transition-all border-0 disabled:opacity-50 cursor-pointer"
+                className={`w-full flex items-center justify-center gap-2 py-4 px-6 rounded-full text-white text-sm font-black shadow-xs transition-all border-0 ${
+                  isSelfBooking
+                    ? 'bg-slate-300 cursor-not-allowed opacity-70'
+                    : 'bg-[#4C5BBD] hover:bg-[#3B489E] cursor-pointer disabled:opacity-50'
+                }`}
               >
                 <Ticket className="w-4 h-4" />
-                <span>{isSubmitting ? 'Issuing Token in Database...' : 'Confirm Slot & Get OPD Queue Token'}</span>
+                <span>
+                  {isSelfBooking
+                    ? 'Self-Booking Disabled for Own Profile'
+                    : isSubmitting
+                    ? 'Issuing Token in Database...'
+                    : 'Confirm Slot & Get OPD Queue Token'}
+                </span>
               </button>
             </div>
 

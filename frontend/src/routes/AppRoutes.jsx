@@ -89,7 +89,7 @@ export const AppRoutes = () => {
             </UnauthenticatedOnlyRoute>
           }
         />
-        <Route path="/style-guide" element={<StyleGuidePage />} />
+        {/* <Route path="/style-guide" element={<StyleGuidePage />} /> */}
       </Route>
 
       {/* Onboarding Redirect to Dashboard */}

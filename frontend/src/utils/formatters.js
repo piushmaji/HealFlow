@@ -23,8 +23,8 @@ export const formatTokenNumber = (specialtyPrefix, number) => {
   return `${prefix}-${paddedNum}`;
 };
 
-export const calculateEstimatedWaitTime = (patientsAhead, avgConsultationMinutes = 12) => {
-  if (patientsAhead <= 0) return 'Immediate';
+export const calculateEstimatedWaitTime = (patientsAhead, avgConsultationMinutes = 30) => {
+  if (patientsAhead <= 0) return 'Immediate (Your Turn)';
   const totalMinutes = patientsAhead * avgConsultationMinutes;
   if (totalMinutes < 60) {
     return `~ ${totalMinutes} mins`;
@@ -67,9 +67,14 @@ export const getISTNow = () => {
 /**
  * Check if an appointment slot is currently active or upcoming in IST
  * Allows entry starting 10 minutes before slot time through the day
+ * If it's an Instant Demo / Emergency slot, it is immediately active regardless of clock time!
  */
-export const isSlotActiveNowIST = (slotDate, slotTime) => {
-  if (!slotTime) return true; // If no slot specified, open by default
+export const isSlotActiveNowIST = (slotDate, slotTime, isDemo = false) => {
+  if (isDemo) return { isActive: true, reason: 'Instant', message: 'Instant Demo Session Active' };
+  if (!slotTime) return { isActive: true, reason: 'Active', message: 'Slot Active' };
+  if (slotTime.toLowerCase().includes('instant') || slotTime.toLowerCase().includes('demo') || slotTime.toLowerCase().includes('immediate') || slotTime.toLowerCase().includes('now')) {
+    return { isActive: true, reason: 'Instant', message: 'Instant Connect Active' };
+  }
   const { dateStr, minutesNow } = getISTNow();
 
   // If date is in the future

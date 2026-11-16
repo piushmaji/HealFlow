@@ -26,7 +26,7 @@ export const Navbar = () => {
     { name: 'About Us', path: '/doctors' },
     { name: 'Services', path: '/live-queue' },
     { name: 'Contact Us', path: '/ai-assistant' },
-    { name: 'Style Guide', path: '/style-guide' },
+    // { name: 'Style Guide', path: '/style-guide' },
   ];
 
   const handleLogout = () => {

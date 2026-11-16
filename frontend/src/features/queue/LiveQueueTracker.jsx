@@ -2,21 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueue } from '../../context/QueueContext';
 import { useToast } from '../../context/ToastContext';
-import { calculateEstimatedWaitTime } from '../../utils/formatters';
+import { calculateEstimatedWaitTime, isSlotActiveNowIST } from '../../utils/formatters';
 import {
   Clock,
   MapPin,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  User,
-  ShieldCheck,
   PhoneCall,
   MessageSquare,
   Stethoscope,
   Building2,
   ArrowRight,
   Lock,
+  Calendar,
+  Users,
+  Sparkles,
 } from 'lucide-react';
 
 export const LiveQueueTracker = ({ appointment }) => {
@@ -28,296 +29,340 @@ export const LiveQueueTracker = ({ appointment }) => {
 
   if (!appointment) {
     return (
-      <div className="text-center p-8 bg-white rounded-3xl border-0 shadow-xs font-sans">
-        <p className="text-[#6B6E84] font-secondary text-sm font-medium">No active appointment selected.</p>
+      <div className="text-center p-8 bg-white rounded-3xl border border-slate-200/80 shadow-xs font-sans">
+        <p className="text-[#6B6E84] text-sm font-medium">No active appointment selected.</p>
       </div>
     );
   }
 
   const defaultTokenPrefix = (appointment.specialty || 'OPD').substring(0, 4).toUpperCase();
   const doctorQueue = queues[appointment.doctor_id] || {
-    current_token: appointment.token_number || `${defaultTokenPrefix}-001`,
+    current_token: `${defaultTokenPrefix}-001`,
     serving_patient: appointment.patient_name || 'Patient',
     total_in_queue: 1,
     status: 'ACTIVE',
   };
 
-  const patientsAhead = getPatientsAhead(appointment.doctor_id, appointment.token_number);
+  const isCompleted = appointment.status === 'Completed';
+  const isInSession = appointment.status === 'In Session';
+  const isDemo =
+    appointment.is_demo ||
+    appointment.is_instant ||
+    /instant|demo|immediate/i.test(appointment.slot_time || appointment.time || '') ||
+    /instant|demo|presentation/i.test(appointment.reason || '');
+
+  const timeCheck = isSlotActiveNowIST(
+    appointment.date || appointment.slot_date,
+    appointment.time || appointment.slot_time,
+    isDemo
+  );
+
+  const patientsAhead = isCompleted ? 0 : getPatientsAhead(appointment.doctor_id, appointment.token_number);
   const estimatedWait = calculateEstimatedWaitTime(patientsAhead);
+  // Strict admission: It is ONLY your turn to enter when doctor explicitly admits (isInSession) AND time slot has arrived (or isDemo)
+  const isYourTurn = !isCompleted && isInSession && timeCheck.isActive;
+  const isNextInLine = !isCompleted && !isInSession && patientsAhead <= 1;
 
   // Auto notification ONLY once when turn actually arrives
   useEffect(() => {
-    if (patientsAhead === 0) {
+    if (isYourTurn && !isCompleted) {
       const notifiedKey = `turn_notified_${appointment.id}_${appointment.token_number}`;
       if (!sessionStorage.getItem(notifiedKey)) {
         sessionStorage.setItem(notifiedKey, 'true');
         showToast(`IT'S YOUR TURN NOW! Please enter ${appointment.room_number || 'Room 101'}.`, 'success');
       }
     }
-  }, [patientsAhead, appointment.id, appointment.token_number, appointment.room_number, showToast]);
+  }, [isYourTurn, isCompleted, appointment.id, appointment.token_number, appointment.room_number, showToast]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    showToast('OPD queue refreshed live.', 'info');
-    setTimeout(() => setIsRefreshing(false), 600);
+    showToast('Queue status refreshed live.', 'info');
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  // Open consultation room on the SAME TAB
-  const handleOpenDedicatedRoomSameTab = () => {
-    if (patientsAhead > 0) {
-      showToast(`Doctor Room locked until your turn! ${patientsAhead} patient(s) ahead.`, 'warning');
+  const handleEnterConsultationRoom = () => {
+    if (!timeCheck.isActive) {
+      showToast(`Chamber locked: ${timeCheck.message}`, 'warning');
+      return;
+    }
+    if (!isInSession) {
+      showToast('Please wait outside. Chamber unlocks when doctor admits you.', 'warning');
       return;
     }
     navigate(`/patients/consultation/${appointment.id}`);
   };
 
-  // 3 DISTINCT BACKGROUND STATES with Short, Simple, Crisp Text & Secondary Font Pairing!
-  let statusBanner = {
-    title: `In Queue • ${patientsAhead} Ahead`,
-    description: `Please rest in the lounge. Est. wait ~${estimatedWait}.`,
-    badgeText: 'Queue Live',
-    bgClass: 'bg-white text-[#1F1F1F] shadow-xs',
-    badgeBg: 'bg-[#F2F5FF] text-[#4C5BBD]',
-    dotClass: 'bg-[#4C5BBD]',
-    titleColor: 'text-[#1F1F1F]',
-    descColor: 'text-[#6B6E84]',
-    locationBg: 'bg-[#F8FAFE] text-[#4C5BBD]',
-    buttonBg: 'bg-[#4C5BBD] text-white hover:bg-[#3B489E]',
-    icon: Clock,
-    isYourTurn: false,
-  };
-
-  if (patientsAhead === 0) {
-    // Actually Your Turn Now State: Fresh Medical Mint Green Background!
-    statusBanner = {
-      title: `Your Turn — Enter ${appointment.room_number || 'Room 101'}`,
-      description: `Token ${appointment.token_number} called. ${appointment.doctor_name || 'The doctor'} is ready.`,
-      badgeText: 'Token Called',
-      bgClass: 'bg-[#ECFDF5] text-[#064E3B] shadow-xs border-0',
-      badgeBg: 'bg-emerald-600 text-white font-black',
-      dotClass: 'bg-white',
-      titleColor: 'text-[#064E3B]',
-      descColor: 'text-emerald-800',
-      locationBg: 'bg-white text-emerald-900 font-black',
-      buttonBg: 'bg-emerald-600 hover:bg-emerald-700 text-white font-black',
-      icon: CheckCircle2,
-      isYourTurn: true,
-    };
-  } else if (patientsAhead === 1) {
-    // Alert / Next in Line State: Soft Ice Blue Background!
-    statusBanner = {
-      title: `Get Ready • You Are Next`,
-      description: `Please stand outside ${appointment.room_number || 'Consultation Room'}.`,
-      badgeText: 'Next in Line',
-      bgClass: 'bg-[#EBF1FF] text-[#161B33] shadow-xs border-0',
-      badgeBg: 'bg-[#4C5BBD] text-white font-black',
-      dotClass: 'bg-white',
-      titleColor: 'text-[#161B33]',
-      descColor: 'text-[#4C5BBD]',
-      locationBg: 'bg-white text-[#4C5BBD] font-black',
-      buttonBg: 'bg-[#4C5BBD] text-white hover:bg-[#3B489E]',
-      icon: AlertCircle,
-      isYourTurn: false,
-    };
-  }
-
   return (
-    <div className="space-y-6 max-w-6xl mx-auto font-sans">
+    <div className="space-y-4 max-w-4xl mx-auto font-sans">
       
-      {/* 1. Main Live OPD Status Banner Card (Short Text, Simple Words, Inter Secondary Font) */}
-      <div className={`p-6 sm:p-7 rounded-3xl border-0 shadow-xs transition-all relative overflow-hidden ${statusBanner.bgClass}`}>
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative z-10">
-          <div className="space-y-2.5 max-w-xl">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider font-secondary ${statusBanner.badgeBg}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${statusBanner.dotClass} animate-pulse`}></span>
-                {statusBanner.badgeText}
-              </span>
+      {/* 1. TOKEN CALLED / YOUR TURN PROMINENT ALERT BANNER */}
+      {isYourTurn && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-emerald-500 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-6 h-6 text-white" />
             </div>
-
-            <h2 className={`text-xl sm:text-2xl font-black leading-snug tracking-tight font-sans ${statusBanner.titleColor}`}>
-              {statusBanner.title}
-            </h2>
-
-            <p className={`text-xs sm:text-sm font-medium font-secondary leading-relaxed ${statusBanner.descColor}`}>
-              {statusBanner.description}
-            </p>
-
-            {/* IF IT'S YOUR TURN: Horizontal Row (Location Badge & Primary Button) */}
-            {statusBanner.isYourTurn ? (
-              <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                <div className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold font-secondary shadow-xs border-0 shrink-0 ${statusBanner.locationBg}`}>
-                  <Building2 className="w-4 h-4 text-emerald-600" />
-                  <span>{appointment.room_number || 'Room 101'} • {appointment.specialty}</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleOpenDedicatedRoomSameTab}
-                  style={{ outline: 'none' }}
-                  className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold font-secondary shadow-xs border-0 transition-all shrink-0 ${statusBanner.buttonBg}`}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Enter Room</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-emerald-700">
+                  Turn Called Now
+                </span>
+                <span className="text-xs text-emerald-100 font-bold">
+                  {appointment.room_number || 'Room 101'}
+                </span>
               </div>
-            ) : (
-              /* BEFORE YOUR TURN: Compact Security Notice */
-              <div className={`pt-1.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium font-secondary border-0 shadow-xs ${statusBanner.locationBg}`}>
-                <Lock className="w-3.5 h-3.5 shrink-0" />
-                <span>Doctor Room unlocks when your turn arrives.</span>
-              </div>
-            )}
+              <h2 className="text-base sm:text-lg font-black font-heading tracking-tight mt-0.5">
+                Token #{appointment.token_number} — Please Enter Doctor's Room
+              </h2>
+              <p className="text-xs text-emerald-50 font-medium">
+                {appointment.doctor_name} is waiting for you at {appointment.hospital || 'HealFlow Clinic'}.
+              </p>
+            </div>
           </div>
 
           <button
             type="button"
-            onClick={handleRefresh}
+            onClick={handleEnterConsultationRoom}
             style={{ outline: 'none' }}
-            className="p-3 rounded-2xl bg-white/60 hover:bg-white text-[#4C5BBD] transition-all shrink-0 border-0 shadow-xs"
-            title="Refresh OPD Telemetry"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-full bg-white text-emerald-700 text-xs font-black shadow-xs hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 cursor-pointer border-0 shrink-0 self-stretch sm:self-auto"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Enter Consultation Room</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      )}
 
-      {/* 2. Primary 2-Card Telemetry Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+      {/* COMPLETED BANNER */}
+      {isCompleted && (
+        <div className="p-4 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <h3 className="text-xs font-bold text-slate-800">Consultation Finished</h3>
+              <p className="text-[11px] text-slate-500">
+                Your consultation with {appointment.doctor_name} has ended.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/patients/dashboard')}
+            className="px-3.5 py-1.5 rounded-full bg-white text-slate-700 border border-slate-300 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      )}
+
+      {/* 2. UNIFIED LIVE OPD TRACKER CARD (Linear & Apple inspired, Clean Minimal Focus) */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6">
         
-        {/* Card 1: Your Patient Token Card */}
-        <div className="bg-white rounded-3xl p-6 border-0 shadow-xs space-y-5 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#6B6E84] font-secondary">
-                Your Token
-              </span>
-              <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-[#F2F5FF] text-[#4C5BBD] font-secondary">
-                Verified
-              </span>
-            </div>
-
-            <div className="text-center py-2.5 bg-[#F8FAFE] rounded-2xl p-3">
-              <p className="text-[10px] text-[#6B6E84] font-bold uppercase tracking-wider font-secondary">Assigned OPD Token</p>
-              <h1 className="text-3xl sm:text-4xl font-black text-[#4C5BBD] font-sans tracking-wide mt-0.5">
-                {appointment.token_number}
-              </h1>
+        {/* Top Header: Doctor Details & Live Status Pill */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <img
+              src={appointment.doctor_avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'}
+              alt={appointment.doctor_name}
+              className="w-12 h-12 rounded-2xl object-cover border border-slate-200/70 shadow-2xs shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-[#1F1F1F] font-heading truncate">
+                  {appointment.doctor_name}
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#F2F5FF] text-[#4C5BBD] border border-slate-200/70">
+                  {appointment.specialty}
+                </span>
+              </div>
+              <p className="text-xs text-[#6B6E84] flex items-center gap-1.5 font-medium mt-0.5">
+                <Building2 className="w-3.5 h-3.5 text-[#4C5BBD] shrink-0" />
+                <span>{appointment.hospital || 'HealFlow OPD Clinic'}</span>
+                <span>•</span>
+                <span className="font-bold text-[#1F1F1F]">{appointment.room_number || 'Room 101'}</span>
+              </p>
             </div>
           </div>
 
-          <div className="space-y-2 text-xs bg-[#F8FAFE] p-3.5 rounded-2xl font-secondary">
-            <div className="flex items-center justify-between">
-              <span className="text-[#6B6E84] font-medium">Patient:</span>
-              <span className="font-bold text-[#1F1F1F]">{appointment.patient_name}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[#6B6E84] font-medium">Doctor:</span>
-              <span className="font-bold text-[#1F1F1F]">{appointment.doctor_name}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[#6B6E84] font-medium">Room:</span>
-              <span className="font-bold text-[#4C5BBD]">{appointment.room_number || 'Room 101'}</span>
-            </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                isCompleted
+                  ? 'bg-slate-100 text-slate-600 border-slate-200'
+                  : isYourTurn
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : patientsAhead === 1
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-[#F2F5FF] text-[#4C5BBD] border-[#DCE5FA]'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isCompleted
+                    ? 'bg-slate-400'
+                    : isYourTurn
+                    ? 'bg-emerald-500 animate-ping'
+                    : 'bg-[#4C5BBD] animate-pulse'
+                }`}
+              />
+              <span>
+                {isCompleted
+                  ? 'Consultation Done'
+                  : isYourTurn
+                  ? 'Doctor Admitted — Your Turn!'
+                  : isNextInLine
+                  ? 'Get Ready • Next in Line'
+                  : 'Waiting in Queue'}
+              </span>
+            </span>
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              style={{ outline: 'none' }}
+              className="p-2 rounded-xl text-[#6B6E84] hover:text-[#4C5BBD] hover:bg-[#F2F5FF] border border-slate-200/70 transition-colors cursor-pointer"
+              title="Refresh Live Status"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#4C5BBD]' : ''}`} />
+            </button>
           </div>
         </div>
 
-        {/* Card 2: Doctor Room Live Counter Status */}
-        <div className="bg-white rounded-3xl p-6 border-0 shadow-xs space-y-5 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#6B6E84] font-secondary">
-                Room Counter
-              </span>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-secondary ${
-                patientsAhead === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-50 text-emerald-700'
-              }`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>{patientsAhead === 0 ? 'Your Turn!' : 'Active Counter'}</span>
-              </span>
-            </div>
+        {/* Center: HERO TOKEN NUMBER (Main visual focus) */}
+        <div className="text-center py-5 sm:py-6 bg-[#F8FAFE] rounded-2xl border border-slate-200/70 space-y-1">
+          <p className="text-[11px] font-bold text-[#6B6E84] uppercase tracking-wider">
+            Your OPD Token Number
+          </p>
+          <div className="flex items-center justify-center">
+            <span
+              className={`text-4xl sm:text-5xl font-black font-sans tracking-wide ${
+                isYourTurn ? 'text-emerald-600' : 'text-[#4C5BBD]'
+              }`}
+            >
+              {appointment.token_number}
+            </span>
+          </div>
+          <p className="text-xs text-[#6B6E84] font-medium pt-0.5">
+            Registered for <strong className="text-[#1F1F1F]">{appointment.patient_name}</strong>
+          </p>
+        </div>
 
-            <div className="text-center py-2.5 bg-[#F8FAFE] rounded-2xl p-3">
-              <p className="text-[10px] text-[#6B6E84] font-bold uppercase tracking-wider font-secondary">Current Room Token</p>
-              <h1 className={`text-3xl sm:text-4xl font-black font-sans tracking-wide mt-0.5 ${
-                patientsAhead === 0 ? 'text-emerald-600 scale-105 transition-transform' : 'text-[#1F1F1F]'
-              }`}>
-                {doctorQueue.current_token}
-              </h1>
-            </div>
+        {/* Bottom: COMPACT 3-PILLAR TELEMETRY STRIP */}
+        <div className="grid grid-cols-3 gap-3">
+          
+          {/* Pillar 1: Now Serving Token */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 text-center space-y-0.5">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase text-[#6B6E84] tracking-wider">
+              Serving In Room
+            </span>
+            <p className="text-lg sm:text-2xl font-black text-[#1F1F1F] font-sans">
+              {doctorQueue.current_token || 'None'}
+            </p>
+            <p className="text-[10px] text-slate-500 font-medium">Current patient</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-xs font-secondary">
-            <div className="p-3 rounded-2xl bg-[#F8FAFE] text-center">
-              <p className="text-[10px] font-bold text-[#6B6E84] uppercase">Ahead</p>
-              <p className="text-xl font-bold text-[#1F1F1F] font-sans mt-0.5">{patientsAhead}</p>
-            </div>
-
-            <div className="p-3 rounded-2xl bg-[#F8FAFE] text-center">
-              <p className="text-[10px] font-bold text-[#6B6E84] uppercase">Est. Wait</p>
-              <p className="text-xl font-bold text-[#4C5BBD] font-sans mt-0.5">{estimatedWait}</p>
-            </div>
+          {/* Pillar 2: People Ahead */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 text-center space-y-0.5">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase text-[#6B6E84] tracking-wider">
+              People Ahead
+            </span>
+            <p
+              className={`text-lg sm:text-2xl font-black font-sans ${
+                isYourTurn ? 'text-emerald-600' : patientsAhead === 1 ? 'text-amber-600' : 'text-[#1F1F1F]'
+              }`}
+            >
+              {patientsAhead}
+            </p>
+            <p className="text-[10px] text-slate-500 font-medium">
+              {isYourTurn ? 'Your turn!' : `${patientsAhead} waiting`}
+            </p>
           </div>
+
+          {/* Pillar 3: Estimated Wait Time */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 text-center space-y-0.5">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase text-[#6B6E84] tracking-wider">
+              Est. Waiting
+            </span>
+            <p className="text-lg sm:text-2xl font-black text-[#4C5BBD] font-sans">
+              {isYourTurn ? '0 mins' : estimatedWait}
+            </p>
+            <p className="text-[10px] text-slate-500 font-medium">Approximate</p>
+          </div>
+
         </div>
 
       </div>
 
-      {/* 3. Communication Access Panel */}
-      <div className="bg-white rounded-3xl p-6 border-0 shadow-xs space-y-4 font-sans">
-        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-          <h3 className="text-xs font-bold text-[#1F1F1F] uppercase tracking-wider flex items-center gap-2 font-secondary">
-            <Stethoscope className="w-4 h-4 text-[#4C5BBD]" />
-            <span>Doctor Portal</span>
-          </h3>
-
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase font-secondary ${
-            patientsAhead === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-[#6B6E84]'
-          }`}>
-            {patientsAhead === 0 ? 'Unlocked' : 'Locked'}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          
-          {/* Dedicated Room Access Card */}
-          <button
-            type="button"
-            onClick={handleOpenDedicatedRoomSameTab}
-            disabled={patientsAhead > 0}
-            style={{ outline: 'none' }}
-            className={`p-4 rounded-2xl text-left transition-all border-0 shadow-xs group ${
-              patientsAhead === 0
-                ? 'bg-[#ECFDF5] hover:bg-emerald-100/60 cursor-pointer'
-                : 'bg-slate-50 opacity-60 cursor-not-allowed'
-            }`}
-          >
-            <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center mb-2">
-              {patientsAhead === 0 ? <MessageSquare className="w-4 h-4" /> : <Lock className="w-4 h-4 text-slate-400" />}
+      {/* 3. COMPACT SECONDARY ACTIONS (Doctor Chat, View Appointments & Helpdesk) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        
+        {/* Action 1: Doctor Consultation Chat */}
+        <button
+          type="button"
+          onClick={handleEnterConsultationRoom}
+          disabled={!isInSession || !timeCheck.isActive}
+          style={{ outline: 'none' }}
+          className={`p-3.5 rounded-2xl border transition-all text-left flex items-center justify-between gap-3 ${
+            isInSession && timeCheck.isActive
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 hover:bg-emerald-100 cursor-pointer'
+              : 'bg-slate-50 border-slate-200/60 opacity-60 cursor-not-allowed text-[#6B6E84]'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+              isInSession && timeCheck.isActive ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
+            }`}>
+              {isInSession && timeCheck.isActive ? <MessageSquare className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
             </div>
-            <h4 className="font-bold text-[#064E3B] text-xs font-secondary flex items-center gap-1.5">
-              <span>Consultation Room</span>
-              <ArrowRight className="w-3.5 h-3.5 text-emerald-600" />
-            </h4>
-            <p className="text-[11px] text-emerald-800 mt-0.5 font-medium font-secondary">
-              {patientsAhead === 0
-                ? 'Access Chat, Voice & Video Call.'
-                : 'Unlocks when your turn arrives.'}
-            </p>
-          </button>
+            <div>
+              <p className="font-bold text-xs">{isInSession && timeCheck.isActive ? 'Enter Chamber Chat' : 'Doctor Chamber Locked'}</p>
+              <p className="text-[10px] text-[#6B6E84]">
+                {!timeCheck.isActive
+                  ? timeCheck.message
+                  : isInSession
+                  ? 'Admitted by doctor'
+                  : 'Unlocks on doctor admission'}
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="w-3.5 h-3.5 text-[#6B6E84] shrink-0" />
+        </button>
 
-          {/* OPD Reception Hotline */}
-          <a
-            href="tel:1800432535"
-            className="p-4 rounded-2xl bg-[#F8FAFE] hover:bg-[#F2F5FF] text-left transition-all border-0 shadow-xs group"
-          >
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2">
+        {/* Action 2: View All Appointments */}
+        <button
+          type="button"
+          onClick={() => navigate('/patients/dashboard')}
+          style={{ outline: 'none' }}
+          className="p-3.5 rounded-2xl bg-white border border-slate-200/80 hover:bg-[#F2F5FF] text-left transition-all flex items-center justify-between gap-3 cursor-pointer text-[#1F1F1F]"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#4C5BBD] flex items-center justify-center shrink-0">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-bold text-xs">My Appointments</p>
+              <p className="text-[10px] text-[#6B6E84]">Back to consultations list</p>
+            </div>
+          </div>
+          <ArrowRight className="w-3.5 h-3.5 text-[#6B6E84] shrink-0" />
+        </button>
+
+        {/* Action 3: Reception Hotline */}
+        <a
+          href="tel:1800432535"
+          className="p-3.5 rounded-2xl bg-white border border-slate-200/80 hover:bg-rose-50 text-left transition-all flex items-center justify-between gap-3 text-[#1F1F1F]"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
               <PhoneCall className="w-4 h-4" />
             </div>
-            <h4 className="font-bold text-[#1F1F1F] text-xs font-secondary">OPD Reception Hotline</h4>
-            <p className="text-[11px] text-[#6B6E84] mt-0.5 font-medium font-secondary">Call +91 1800-432-535.</p>
-          </a>
+            <div>
+              <p className="font-bold text-xs">OPD Helpdesk</p>
+              <p className="text-[10px] text-[#6B6E84]">+91 1800-432-535</p>
+            </div>
+          </div>
+          <ArrowRight className="w-3.5 h-3.5 text-[#6B6E84] shrink-0" />
+        </a>
 
-        </div>
       </div>
 
     </div>

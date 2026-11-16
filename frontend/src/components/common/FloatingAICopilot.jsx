@@ -117,25 +117,45 @@ export const FloatingAICopilot = () => {
 
                   {/* Doctor recommendation card inside float widget */}
                   {isAI && m.recommendedDoctor && (
-                    <div className="mt-2 p-3 rounded-2xl bg-white border-0 shadow-xs space-y-2 text-left w-[85%] font-secondary">
-                      <div className="flex items-center gap-2">
-                        <Stethoscope className="w-3.5 h-3.5 text-[#4C5BBD]" />
-                        <span className="text-[10px] font-black text-[#1F1F1F] truncate">
+                    <div className="mt-2 p-3 rounded-2xl bg-white border border-slate-100 shadow-xs space-y-2 text-left w-[85%] font-secondary">
+                      <div
+                        onClick={() => {
+                          setIsOpen(false);
+                          navigate(`/doctors/${m.recommendedDoctor.id}`);
+                        }}
+                        className="flex items-center gap-2 cursor-pointer group"
+                        title="Click to view full doctor profile"
+                      >
+                        <Stethoscope className="w-3.5 h-3.5 text-[#4C5BBD] shrink-0" />
+                        <span className="text-[10px] font-black text-[#1F1F1F] group-hover:text-[#4C5BBD] truncate transition-colors">
                           {m.recommendedDoctor.name}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsOpen(false);
-                          navigate(`/doctors/${m.recommendedDoctor.id}/book`);
-                        }}
-                        style={{ outline: 'none' }}
-                        className="w-full py-1.5 px-3 rounded-full bg-[#4C5BBD] text-white text-[10px] font-bold border-0 shadow-xs flex items-center justify-center gap-1"
-                      >
-                        <Calendar className="w-3 h-3" />
-                        <span>Book Slot ₹{m.recommendedDoctor.consultation_fee}</span>
-                      </button>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsOpen(false);
+                            navigate(`/doctors/${m.recommendedDoctor.id}`);
+                          }}
+                          style={{ outline: 'none' }}
+                          className="py-1 px-2 rounded-full bg-[#F2F5FF] text-[#4C5BBD] text-[10px] font-bold border-0 cursor-pointer text-center"
+                        >
+                          Profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsOpen(false);
+                            navigate(`/doctors/${m.recommendedDoctor.id}/book`);
+                          }}
+                          style={{ outline: 'none' }}
+                          className="py-1 px-2 rounded-full bg-[#4C5BBD] text-white text-[10px] font-bold border-0 shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Calendar className="w-2.5 h-2.5" />
+                          <span>Book</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 

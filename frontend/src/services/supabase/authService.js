@@ -62,12 +62,10 @@ export const signUpUser = async ({
   const cleanEmail = (email || '').trim().toLowerCase();
   const cleanPhone = (phone || '').trim();
 
-  // 1. STRICT DATABASE VERIFICATION GATE:
-  // Check if user is recognized in the hospital database (profiles, appointments, or doctors)
+  // 1. DATABASE LOOKUP & VERIFICATION:
+  // Check if profile or appointment already exists in clinical database
   let matchedProfile = null;
   if (isSupabaseConfigured) {
-    let isWhitelistedInDatabase = false;
-
     try {
       // Check 1: Existing profile in public.profiles
       const { data: profile } = await supabase
@@ -77,12 +75,11 @@ export const signUpUser = async ({
         .maybeSingle();
 
       if (profile) {
-        isWhitelistedInDatabase = true;
         matchedProfile = profile;
       }
 
       // Check 2: Existing appointment in public.appointments
-      if (!isWhitelistedInDatabase) {
+      if (!matchedProfile) {
         const { data: apt } = await supabase
           .from('appointments')
           .select('id, patient_name, patient_email, patient_phone')
@@ -90,12 +87,12 @@ export const signUpUser = async ({
           .limit(1);
 
         if (apt && apt.length > 0) {
-          isWhitelistedInDatabase = true;
+          // Found pre-existing appointment in hospital
         }
       }
 
       // Check 3: If doctor role, check public.doctors
-      if (!isWhitelistedInDatabase && role === 'doctor') {
+      if (!matchedProfile && role === 'doctor') {
         const { data: doc } = await supabase
           .from('doctors')
           .select('id, name')
@@ -103,17 +100,11 @@ export const signUpUser = async ({
           .limit(1);
 
         if (doc && doc.length > 0) {
-          isWhitelistedInDatabase = true;
+          // Doctor match in directory
         }
       }
     } catch (checkErr) {
       console.warn('Database verification notice:', checkErr);
-    }
-
-    if (!isWhitelistedInDatabase) {
-      throw new Error(
-        'Access Denied: Your email is not registered in the hospital database. Only pre-registered patients and verified hospital doctors can create an account. Please contact OPD administration.'
-      );
     }
   }
 

@@ -12,6 +12,9 @@ export const DoctorStats = () => {
 
   const completedCount = doctorAppointments.filter((a) => a.status === 'Completed').length;
 
+  const waitingCount = doctorAppointments.filter((a) => a.status === 'Scheduled').length;
+  const inSessionToken = doctorAppointments.find((a) => a.status === 'In Session')?.token_number || queue.current_token || 'None';
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-sans">
       
@@ -24,7 +27,7 @@ export const DoctorStats = () => {
           </div>
         </div>
         <p className="text-2xl font-black text-[#1F1F1F] font-sans">{doctorAppointments.length}</p>
-        <p className="text-[10px] text-[#6B6E84] font-medium">Confirmed Appointments</p>
+        <p className="text-[10px] text-[#6B6E84] font-medium">Real-time Bookings</p>
       </div>
 
       {/* 2. Now Serving Token */}
@@ -35,7 +38,7 @@ export const DoctorStats = () => {
             <Ticket className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-2xl font-black font-sans text-[#4C5BBD] tracking-wide">{queue.current_token || 'None'}</p>
+        <p className="text-2xl font-black font-sans text-[#4C5BBD] tracking-wide">{inSessionToken}</p>
         <p className="text-[10px] text-[#6B6E84] font-medium">Live Patient in Room</p>
       </div>
 
@@ -47,8 +50,8 @@ export const DoctorStats = () => {
             <Users className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-2xl font-black text-amber-600 font-sans">{queue.total_in_queue || 0}</p>
-        <p className="text-[10px] text-[#6B6E84] font-medium">Patients in Waiting Hall</p>
+        <p className="text-2xl font-black text-amber-600 font-sans">{waitingCount}</p>
+        <p className="text-[10px] text-[#6B6E84] font-medium">Active Waiting Patients</p>
       </div>
 
       {/* 4. Completed Consultations */}

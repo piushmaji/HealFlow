@@ -12,14 +12,13 @@ import {
   Clock,
   ArrowRight,
   PhoneCall,
-  Activity,
   CheckCircle2,
   Stethoscope,
-  Palette,
-  User,
-  CalendarX,
   AlertCircle,
+  Building2,
+  User,
 } from 'lucide-react';
+import { formatDate } from '../utils/formatters';
 
 export const PatientDashboardPage = () => {
   const navigate = useNavigate();
@@ -28,12 +27,11 @@ export const PatientDashboardPage = () => {
 
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
 
-  // Automatically prompt new patients who haven't completed their required medical details
+  // Automatically prompt new patients who haven't completed required medical details
   useEffect(() => {
     if (isPatient && patientUser?.id) {
       const hasDismissed = sessionStorage.getItem(`healflow_onboard_prompt_dismissed_${patientUser.id}`);
       if (!patientUser.hasCompletedMedicalDetails && !hasDismissed) {
-        // Show after brief entrance delay
         const timer = setTimeout(() => {
           setIsOnboardingModalOpen(true);
         }, 600);
@@ -49,42 +47,31 @@ export const PatientDashboardPage = () => {
     setIsOnboardingModalOpen(false);
   };
 
-  const scheduledAppointments = appointments.filter((a) => a.status === 'Scheduled');
-  const completedAppointments = appointments.filter((a) => a.status === 'Completed');
+  const todayIso = new Date().toISOString().split('T')[0];
 
-  const sideQuickActions = [
-    {
-      title: 'Book Doctor Slot',
-      desc: 'Find specialist doctors & instant slots',
-      icon: Stethoscope,
-      path: '/doctors',
-      color: 'bg-[#F2F5FF] text-[#4C5BBD]',
-    },
-    {
-      title: 'Live OPD Queue Status',
-      desc: 'Track your token wait time live',
-      icon: Clock,
-      path: '/live-queue',
-      color: 'bg-emerald-50 text-emerald-600',
-    },
-    {
-      title: 'AI Symptom Assistant',
-      desc: '24/7 medical guidance & Q&A',
-      icon: Sparkles,
-      path: '/ai-assistant',
-      color: 'bg-amber-50 text-amber-600',
-    },
-    {
-      title: 'UI Design Style Guide',
-      desc: 'Explore UI components & tokens',
-      icon: Palette,
-      path: '/style-guide',
-      color: 'bg-blue-50 text-[#5B81FA]',
-    },
-  ];
+  // Sanitize appointment status according to real date: future appointments cannot be 'In Session'
+  const normalizedAppointments = appointments.map((apt) => {
+    const aptDate = apt.date || apt.slot_date;
+    let status = apt.status || 'Scheduled';
+    if (status === 'In Session' && aptDate && aptDate > todayIso) {
+      status = 'Scheduled';
+    }
+    return { ...apt, status };
+  });
+
+  const scheduledAppointments = normalizedAppointments.filter((a) => a.status === 'Scheduled' || a.status === 'Checked In');
+  const completedAppointments = normalizedAppointments.filter((a) => a.status === 'Completed');
+  const inSessionAppointment = normalizedAppointments.find((a) => a.status === 'In Session');
+
+  // Determine active appointment to highlight: In Session first, else today's upcoming, else next upcoming
+  const primaryAppointment =
+    inSessionAppointment ||
+    activeTrackingAppointment ||
+    scheduledAppointments[0] ||
+    null;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-8 font-sans">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12 font-sans">
       
       {/* Required Medical Profile Completion Popup */}
       <PatientOnboardingModal
@@ -94,17 +81,17 @@ export const PatientDashboardPage = () => {
 
       {/* Medical Profile Pending Alert Banner (If not completed) */}
       {!patientUser?.hasCompletedMedicalDetails && (
-        <div className="p-4 sm:p-5 rounded-3xl bg-amber-50 border border-amber-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
               <AlertCircle className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-xs font-black text-amber-950 font-heading">
+              <h4 className="text-xs font-bold text-amber-950 font-heading">
                 Complete Your Medical Profile
               </h4>
               <p className="text-[11px] text-amber-800 font-medium">
-                Add your Date of Birth & Gender to unlock automated OPD token prioritization.
+                Add Date of Birth & Gender to unlock automated OPD token prioritization.
               </p>
             </div>
           </div>
@@ -112,7 +99,7 @@ export const PatientDashboardPage = () => {
           <button
             type="button"
             onClick={() => setIsOnboardingModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber-600 text-white text-xs font-black hover:bg-amber-700 transition-all shadow-xs border-0 cursor-pointer self-end sm:self-auto"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-all border-0 cursor-pointer self-end sm:self-auto"
           >
             <span>Complete Details</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -120,284 +107,185 @@ export const PatientDashboardPage = () => {
         </div>
       )}
 
-      {/* Structured 2-Column Workspace Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      {/* =========================================================================
+          HIERARCHY 1: ACTIVE APPOINTMENT & QUEUE (Only shown when an appointment exists)
+          ========================================================================= */}
+      {primaryAppointment ? (
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                  primaryAppointment.status === 'In Session'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    : 'bg-[#F2F5FF] text-[#4C5BBD] border border-[#DCE5FA]'
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    primaryAppointment.status === 'In Session'
+                      ? 'bg-emerald-500 animate-ping'
+                      : 'bg-[#4C5BBD] animate-pulse'
+                  }`}
+                />
+                <span>
+                  {primaryAppointment.status === 'In Session'
+                    ? 'Turn Called Now'
+                    : 'Upcoming Consultation'}
+                </span>
+              </span>
+
+              <span className="text-xs font-mono font-bold text-slate-500">
+                Token #{primaryAppointment.token_number}
+              </span>
+            </div>
+
+            <span className="text-xs font-semibold text-[#6B6E84]">
+              {formatDate(primaryAppointment.date || primaryAppointment.slot_date)} • {primaryAppointment.time || primaryAppointment.slot_time || 'Scheduled'}
+            </span>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div className="space-y-1">
+              <h2 className="text-lg sm:text-xl font-black text-[#1F1F1F] font-heading">
+                Consultation with {primaryAppointment.doctor_name || 'Doctor'}
+              </h2>
+              <p className="text-xs text-[#6B6E84] flex items-center gap-2 font-medium">
+                <span className="font-bold text-[#4C5BBD]">{primaryAppointment.specialty}</span>
+                <span>•</span>
+                <Building2 className="w-3.5 h-3.5 text-[#4C5BBD]" />
+                <span>{primaryAppointment.hospital || 'HealFlow Hospital'}</span>
+                <span>•</span>
+                <span className="font-bold text-[#1F1F1F]">{primaryAppointment.room_number || 'Room 101'}</span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate(`/patients/live-queue/${primaryAppointment.id}`)}
+                className="w-full md:w-auto px-5 py-2.5 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold transition-all shadow-xs border-0 cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Clock className="w-4 h-4" />
+                <span>Track Live Queue →</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate(`/patients/consultation/${primaryAppointment.id}`)}
+                className="hidden sm:inline-flex px-4 py-2.5 rounded-full bg-[#F2F5FF] hover:bg-[#E3EAFA] text-[#4C5BBD] text-xs font-bold transition-all border-0 cursor-pointer"
+              >
+                Doctor Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Empty Active Appointment: Calm & Actionable */
+        <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-[#F8FAFE] via-white to-[#F2F5FF] border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-[#EEF2FF] text-[#4C5BBD] flex items-center justify-center shrink-0">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#1F1F1F] font-heading">
+                No active consultation today
+              </h3>
+              <p className="text-xs text-[#6B6E84] font-medium">
+                Search specialists below to schedule an appointment and get your OPD token.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/doctors')}
+            className="px-5 py-2.5 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold transition-all shadow-xs border-0 cursor-pointer shrink-0"
+          >
+            Find a Doctor
+          </button>
+        </div>
+      )}
+
+      {/* =========================================================================
+          HIERARCHY 2: FIND A DOCTOR (Search & Full Specialties)
+          ========================================================================= */}
+      <PatientDiscoverySection />
+
+      {/* =========================================================================
+          HIERARCHY 3: MY APPOINTMENTS (Primary Appointment Workspace)
+          ========================================================================= */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-[#1F1F1F] font-heading">
+              My Appointments
+            </h3>
+            <p className="text-xs text-[#6B6E84] font-medium mt-0.5">
+              Scheduled consultations, in-progress queues and past clinical visits
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/doctors')}
+            className="text-xs font-bold text-[#4C5BBD] hover:underline flex items-center gap-1 cursor-pointer border-0 bg-transparent"
+          >
+            <span>Book New</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <AppointmentList
+          appointments={normalizedAppointments}
+          onBookNew={() => navigate('/doctors')}
+        />
+      </div>
+
+      {/* =========================================================================
+          HIERARCHY 4: COMPACT OVERVIEW & HELPDESK
+          ========================================================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
         
-        {/* Left / Main Workspace Column (2/3 width) */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Healthcare Discovery Section: Search, 4 Specialties & AI Guide */}
-          <PatientDiscoverySection />
-
-          {/* Live Queue Token Hero Card (Dynamic - only shows token when appointment exists) */}
-          {activeTrackingAppointment ? (
-            <div className="bg-white rounded-3xl p-6 border-0 shadow-xs relative overflow-hidden space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#4C5BBD] text-white flex items-center justify-center font-bold shadow-xs">
-                    <Ticket className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-600 border-0 shadow-xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Live OPD Queue Token
-                    </span>
-                    <p className="text-xs font-bold text-[#6B6E84] mt-0.5">
-                      {activeTrackingAppointment.room_number || 'Room 101'} • {activeTrackingAppointment.specialty || 'General'} OPD
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => navigate(`/patients/live-queue/${activeTrackingAppointment.id}`)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#4C5BBD] text-white text-xs font-black hover:bg-[#3B489E] transition-all shadow-xs border-0 cursor-pointer"
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Track Live Queue</span>
-                </button>
-              </div>
-
-              {/* Token Number Display */}
-              <div className="p-4 rounded-2xl bg-[#F8FAFE] border-0 shadow-xs flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">Your Assigned Token</p>
-                  <h2 className="text-3xl font-black text-[#4C5BBD] font-sans tracking-wide mt-0.5">
-                    {activeTrackingAppointment.token_number}
-                  </h2>
-                  <div className="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-slate-700">
-                    <Calendar className="w-3.5 h-3.5 text-[#4C5BBD]" />
-                    <span>{activeTrackingAppointment.date || activeTrackingAppointment.slot_date}</span>
-                    <span>•</span>
-                    <Clock className="w-3.5 h-3.5 text-[#4C5BBD]" />
-                    <span>{activeTrackingAppointment.time || activeTrackingAppointment.slot_time}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 text-right">
-                  <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-white shadow-xs shrink-0 bg-[#EEF2FF] flex items-center justify-center">
-                    <img
-                      src={
-                        activeTrackingAppointment.doctor_avatar ||
-                        'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'
-                      }
-                      alt={activeTrackingAppointment.doctor_name || 'Doctor'}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">Assigned Doctor</p>
-                    <p className="text-xs font-black text-[#1F1F1F] mt-0.5">
-                      {activeTrackingAppointment.doctor_name || 'Dr. Specialist'}
-                    </p>
-                    <p className="text-[11px] text-[#4C5BBD] font-bold">
-                      {activeTrackingAppointment.specialty || 'Consultant'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-3xl p-6 border-0 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4 text-center sm:text-left">
-                <div className="w-12 h-12 rounded-2xl bg-[#F2F5FF] text-[#4C5BBD] flex items-center justify-center shrink-0">
-                  <CalendarX className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-[#1F1F1F]">No Active OPD Queue Token</h3>
-                  <p className="text-xs text-[#6B6E84] mt-0.5">
-                    You do not have any consultations in progress. Book an appointment to get a live queue token.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => navigate('/doctors')}
-                className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#4C5BBD] text-white text-xs font-black hover:bg-[#3B489E] transition-all shadow-xs border-0 cursor-pointer"
-              >
-                <Stethoscope className="w-3.5 h-3.5" />
-                <span>Book Appointment</span>
-              </button>
-            </div>
-          )}
-
-          {/* Appointments List */}
-          <div className="bg-white rounded-3xl p-6 border-0 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-black text-[#1F1F1F] font-heading">My Appointments</h3>
-                <p className="text-xs text-[#6B6E84]">Scheduled consultations and visit history</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => navigate('/doctors')}
-                className="text-xs font-bold text-[#4C5BBD] hover:underline flex items-center gap-1 cursor-pointer border-0 bg-transparent"
-              >
-                <span>Find Doctors</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <AppointmentList
-              appointments={appointments}
-              onBookNew={() => navigate('/doctors')}
-            />
+        {/* Health ID card */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">Health ID</span>
+            <p className="text-sm font-mono font-bold text-[#4C5BBD]">
+              {patientUser.healthId || (patientUser.id ? `HLF-${patientUser.id.slice(0, 8).toUpperCase()}` : 'HLF-PATIENT')}
+            </p>
           </div>
-
+          <button
+            type="button"
+            onClick={() => navigate('/patients/profile')}
+            className="text-xs font-bold text-[#4C5BBD] hover:underline bg-transparent border-0 cursor-pointer"
+          >
+            Profile →
+          </button>
         </div>
 
-        {/* Right Sidebar Information Panel (1/3 width) */}
-        <div className="space-y-6">
-          
-          {/* Card 0: Patient Profile & Health Card */}
-          <div className="bg-[#F2F5FF] rounded-3xl p-5 border-0 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#4C5BBD] text-white shadow-xs">
-                <CheckCircle2 className="w-3 h-3" />
-                <span>{patientUser.hasCompletedMedicalDetails ? 'Profile Complete' : 'Profile Active'}</span>
-              </span>
-              <span className="text-xs font-mono font-bold text-[#4C5BBD]">
-                {patientUser.healthId || (patientUser.id ? `HLF-${patientUser.id.slice(0, 8).toUpperCase()}` : 'HLF-PATIENT')}
-              </span>
-            </div>
-
-            {/* Profile Avatar + Details */}
-            <div className="flex items-center gap-3.5">
-              <div className="relative shrink-0 w-12 h-12 rounded-2xl overflow-hidden border-2 border-white shadow-xs">
-                {patientUser.avatar ? (
-                  <img
-                    src={patientUser.avatar}
-                    alt={patientUser.name || 'Patient'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-[#4C5BBD] text-white font-black text-lg flex items-center justify-center">
-                    {(patientUser.name || 'P').charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-0.5 min-w-0 flex-1">
-                <h4 className="text-sm font-black text-[#1F1F1F] font-heading truncate">
-                  {patientUser.name || 'Set Your Name'}
-                </h4>
-                <p className="text-[11px] text-[#6B6E84] font-medium truncate">
-                  {patientUser.email || 'No email registered'}
-                </p>
-                {patientUser.phone && (
-                  <p className="text-[11px] text-[#6B6E84] font-medium">
-                    {patientUser.phone}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Medical Highlights pill */}
-            {(patientUser.dateOfBirth || patientUser.gender || patientUser.bloodGroup) && (
-              <div className="pt-1 flex flex-wrap gap-1.5 text-[10px]">
-                {patientUser.gender && (
-                  <span className="px-2 py-0.5 rounded-md bg-white text-[#4C5BBD] font-bold shadow-2xs">
-                    {patientUser.gender}
-                  </span>
-                )}
-                {patientUser.bloodGroup && (
-                  <span className="px-2 py-0.5 rounded-md bg-white text-rose-600 font-bold shadow-2xs">
-                    Blood: {patientUser.bloodGroup}
-                  </span>
-                )}
-                {patientUser.dateOfBirth && (
-                  <span className="px-2 py-0.5 rounded-md bg-white text-slate-700 font-bold shadow-2xs">
-                    DOB: {patientUser.dateOfBirth}
-                  </span>
-                )}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => navigate('/patients/profile')}
-              className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-white text-[#4C5BBD] text-xs font-bold hover:bg-[#4C5BBD] hover:text-white transition-all shadow-xs border-0 cursor-pointer"
-            >
-              <span>Manage Profile</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+        {/* Appointment count summary */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">Visits Summary</span>
+            <p className="text-xs font-semibold text-[#1F1F1F]">
+              <strong className="text-[#4C5BBD]">{scheduledAppointments.length}</strong> Upcoming • <strong className="text-emerald-600">{completedAppointments.length}</strong> Completed
+            </p>
           </div>
-
-          {/* Card 1: Quick Actions */}
-          <div className="bg-white rounded-3xl p-6 border-0 shadow-xs space-y-3">
-            <h4 className="text-xs font-black text-[#1F1F1F] font-heading uppercase tracking-wider pb-2 border-b border-slate-100">
-              Quick Actions
-            </h4>
-
-            <div className="space-y-2.5">
-              {sideQuickActions.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.title}
-                    onClick={() => navigate(item.path)}
-                    className="p-3 rounded-2xl bg-[#F8FAFE] border-0 hover:bg-[#F2F5FF] cursor-pointer transition-all shadow-xs group flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl ${item.color} flex items-center justify-center shrink-0`}>
-                        <Icon className="w-4.5 h-4.5" />
-                      </div>
-                      <div>
-                        <h5 className="text-xs font-black text-[#1F1F1F] font-heading group-hover:text-[#4C5BBD] transition-colors">
-                          {item.title}
-                        </h5>
-                        <p className="text-[10px] text-[#6B6E84] font-medium">
-                          {item.desc}
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#6B6E84] group-hover:text-[#4C5BBD] group-hover:translate-x-1 transition-all shrink-0" />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Card 2: Combined Health Summary & Integrated Clinic Support */}
-          <div className="bg-white rounded-3xl p-6 border-0 shadow-xs space-y-4">
-            <h4 className="text-xs font-black text-[#1F1F1F] font-heading uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-[#4C5BBD]" />
-              <span>Consultation Summary & Support</span>
-            </h4>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="p-3 rounded-2xl bg-[#F8FAFE] border-0 shadow-xs flex items-center justify-between">
-                <span className="text-[#6B6E84] font-medium">Upcoming Visits</span>
-                <span className="font-black text-[#4C5BBD] text-sm">{scheduledAppointments.length}</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#F8FAFE] border-0 shadow-xs flex items-center justify-between">
-                <span className="text-[#6B6E84] font-medium">Completed Visits</span>
-                <span className="font-black text-emerald-600 text-sm">{completedAppointments.length}</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#F8FAFE] border-0 shadow-xs flex items-center justify-between">
-                <span className="text-[#6B6E84] font-medium">Total Appointments</span>
-                <span className="font-bold text-[#1F1F1F]">{appointments.length}</span>
-              </div>
-            </div>
-
-            {/* Helpline Banner */}
-            <div className="pt-2 border-t border-slate-100">
-              <p className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider mb-2">OPD Helpdesk Support</p>
-              <a
-                href="tel:1800432535"
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-rose-50 text-rose-600 border-0 text-xs font-bold hover:bg-rose-100 transition-colors shadow-xs"
-              >
-                <PhoneCall className="w-3.5 h-3.5" />
-                <span>Helpline: +91 1800-432-535</span>
-              </a>
-            </div>
-          </div>
-
+          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
         </div>
+
+        {/* Helpdesk */}
+        <a
+          href="tel:1800432535"
+          className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between hover:bg-rose-50/50 transition-colors"
+        >
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold text-[#6B6E84] uppercase tracking-wider">OPD Helpdesk</span>
+            <p className="text-xs font-bold text-[#1F1F1F]">+91 1800-432-535</p>
+          </div>
+          <PhoneCall className="w-4 h-4 text-rose-500" />
+        </a>
 
       </div>
 

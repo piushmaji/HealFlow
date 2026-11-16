@@ -269,12 +269,22 @@ export const DoctorConsultationChatPage = () => {
     }
   };
 
-  // Call duration interval
+  // Live Timer & 30-Minute Maximum Consultation Slot Watchdog
+  const MAX_SLOT_SECONDS = 30 * 60; // 30 mins session limit (1800s)
+
+  // Call duration interval & 30-min auto completion guard
   useEffect(() => {
     let timer = null;
     if (isVoiceCallActive || isVideoCallActive) {
       timer = setInterval(() => {
-        setCallDurationSeconds((prev) => prev + 1);
+        setCallDurationSeconds((prev) => {
+          const nextSecs = prev + 1;
+          if (nextSecs >= MAX_SLOT_SECONDS) {
+            showToast('30-minute consultation window completed.', 'info');
+            handleEndCall();
+          }
+          return nextSecs;
+        });
       }, 1000);
     } else {
       setCallDurationSeconds(0);
@@ -682,8 +692,19 @@ export const DoctorConsultationChatPage = () => {
     );
   }
 
-  // 2. STRICT IST TIME SLOT GUARD: Session ONLY unlocks at Indian Standard Time
-  const istSlotCheck = isSlotActiveNowIST(appointment.date || appointment.slot_date, appointment.time || appointment.slot_time);
+  // 2. STRICT IST TIME SLOT GUARD: Session ONLY unlocks at Indian Standard Time (or Instant Demo)
+  const isDemoOrInstant =
+    appointment.is_demo ||
+    appointment.is_instant ||
+    (appointment.slot_time && /instant|demo|immediate/i.test(appointment.slot_time)) ||
+    (appointment.reason && /instant|demo|presentation/i.test(appointment.reason));
+
+  const istSlotCheck = isSlotActiveNowIST(
+    appointment.date || appointment.slot_date,
+    appointment.time || appointment.slot_time,
+    isDemoOrInstant
+  );
+
   if (!istSlotCheck.isActive) {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center font-sans space-y-5 animate-fade-in">
@@ -796,44 +817,55 @@ export const DoctorConsultationChatPage = () => {
           </div>
         </div>
 
-        {/* Call Triggers: Audio Call & Video Call */}
+        {/* Call Triggers: Doctor ONLY can initiate Audio/Video call. Patient side shows Waiting for Doctor Call badge */}
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <span className="px-3 py-1.5 text-xs font-black bg-[#F2F5FF] text-[#4C5BBD] rounded-xl border border-slate-200/80 shadow-xs">
             Token: {appointment.token_number}
           </span>
 
-          <button
-            type="button"
-            onClick={() => handleStartCall('audio')}
-            style={{ outline: 'none' }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white text-[#4C5BBD] text-xs font-black transition-all shadow-xs border border-slate-200/80 cursor-pointer"
-          >
-            <PhoneCall className="w-4 h-4" />
-            <span>Audio Call</span>
-          </button>
+          <span className="px-3 py-1.5 text-xs font-bold bg-amber-50 text-amber-800 rounded-xl border border-amber-200/80 shadow-xs flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-amber-600" />
+            <span>Max 30 Mins Slot</span>
+          </span>
 
-          <button
-            type="button"
-            onClick={() => handleStartCall('video')}
-            style={{ outline: 'none' }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
-          >
-            <Video className="w-4 h-4" />
-            <span>Video Call</span>
-          </button>
+          {isDoctor ? (
+            <>
+              <button
+                type="button"
+                onClick={() => handleStartCall('audio')}
+                style={{ outline: 'none' }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white text-[#4C5BBD] text-xs font-black transition-all shadow-xs border border-slate-200/80 cursor-pointer"
+              >
+                <PhoneCall className="w-4 h-4" />
+                <span>Audio Call</span>
+              </button>
 
-          {/* Doctor Exclusive: Complete & Discharge Patient Button */}
-          {isDoctor && (
-            <button
-              type="button"
-              onClick={handleCompleteConsultation}
-              style={{ outline: 'none' }}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
-              title="Mark consultation completed and close chamber"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Complete Visit</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleStartCall('video')}
+                style={{ outline: 'none' }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
+              >
+                <Video className="w-4 h-4" />
+                <span>Video Call</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCompleteConsultation}
+                style={{ outline: 'none' }}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
+                title="Mark consultation complete and admit next patient"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Complete Visit</span>
+              </button>
+            </>
+          ) : (
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F0FDF4] text-emerald-800 text-xs font-bold border border-emerald-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Chamber Active • Doctor Calls You</span>
+            </span>
           )}
         </div>
       </div>
@@ -937,8 +969,33 @@ export const DoctorConsultationChatPage = () => {
             )}
           </div>
 
-          {/* Text Message Input Bar */}
+          {/* Text Message & File/Prescription Attachment Bar */}
           <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2">
+            <label
+              htmlFor="chat-file-upload"
+              className="p-3 rounded-full bg-[#F8FAFE] hover:bg-[#F2F5FF] text-[#4C5BBD] border border-slate-200/90 shadow-2xs cursor-pointer transition-all shrink-0"
+              title="Attach Prescription or Clinical Photo"
+            >
+              <Paperclip className="w-4 h-4" />
+              <input
+                id="chat-file-upload"
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      setInputMessage(`[Shared Document: ${file.name}] `);
+                    };
+                    reader.readAsDataURL(file);
+                    showToast(`Attached ${file.name}`, 'info');
+                  }
+                }}
+              />
+            </label>
+
             <input
               type="text"
               value={inputMessage}
@@ -946,7 +1003,7 @@ export const DoctorConsultationChatPage = () => {
               placeholder={
                 isDoctor
                   ? `Message patient ${appointment.patient_name || 'Patient'}...`
-                  : `Message Dr. ${appointment.doctor_name}...`
+                  : `Message Dr. ${appointment.doctor_name} (share symptoms or prescription)...`
               }
               style={{ outline: 'none' }}
               className="flex-1 bg-[#F8FAFE] border border-slate-200/90 rounded-full px-5 py-3 text-xs text-[#1F1F1F] font-semibold shadow-xs focus:bg-white transition-all"

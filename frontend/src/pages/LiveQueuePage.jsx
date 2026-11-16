@@ -22,13 +22,13 @@ export const LiveQueuePage = () => {
     <div className="max-w-6xl mx-auto space-y-6 pb-8 font-sans">
       
       {/* 1. Clean Consolidated Header Banner */}
-      <div className="bg-white rounded-3xl p-6 border-0 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => (appointmentId ? navigate('/patients/live-queue') : navigate(-1))}
             style={{ outline: 'none' }}
-            className="p-2 rounded-full text-[#6B6E84] hover:bg-[#F2F5FF] border-0 transition-colors shadow-xs"
+            className="p-2 rounded-2xl text-[#6B6E84] hover:bg-[#F2F5FF] hover:text-[#4C5BBD] border border-slate-200/80 transition-colors shadow-2xs cursor-pointer"
             title="Go Back"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -36,24 +36,24 @@ export const LiveQueuePage = () => {
 
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-[#1F1F1F] font-sans tracking-wide">
+              <h1 className="text-lg sm:text-xl font-black text-[#1F1F1F] font-heading tracking-wide">
                 {isDoctor
                   ? 'Doctor OPD Live Queue Control'
                   : selectedAppointment
-                  ? `Live Queue — ${selectedAppointment.doctor_name}`
+                  ? `Live Queue Tracker`
                   : 'Live OPD Queue Telemetry'}
               </h1>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border-0 shadow-xs">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 shadow-2xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Live Telemetry Active</span>
+                <span>Realtime Active</span>
               </span>
             </div>
             <p className="text-xs text-[#6B6E84] mt-0.5 font-medium">
               {isDoctor
                 ? 'Manage consultation queue flow and call next patient tokens.'
                 : selectedAppointment
-                ? `Tracking token ${selectedAppointment.token_number} for ${selectedAppointment.hospital || 'HealFlow Clinic'} (${selectedAppointment.room_number || 'Room 101'}).`
-                : 'Select an appointment below to view its dedicated live OPD queue & telemetry.'}
+                ? `Consultation with ${selectedAppointment.doctor_name || 'Doctor'} (${selectedAppointment.room_number || 'Room 101'})`
+                : 'Select an active appointment below to track live token progression.'}
             </p>
           </div>
         </div>
@@ -65,19 +65,9 @@ export const LiveQueuePage = () => {
               type="button"
               onClick={() => navigate('/patients/live-queue')}
               style={{ outline: 'none' }}
-              className="px-3.5 py-2 rounded-full text-xs font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white transition-colors border-0 shadow-xs"
+              className="px-4 py-2 rounded-full text-xs font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white transition-colors border-0 cursor-pointer shadow-xs"
             >
-              View All Appointments
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate(`/patients/consultation/${selectedAppointment.id}`)}
-              style={{ outline: 'none' }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-500 text-white text-xs font-black hover:bg-emerald-600 transition-all border-0 shadow-xs"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Doctor Chat</span>
+              All Appointments
             </button>
           </div>
         )}

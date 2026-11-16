@@ -5,8 +5,10 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { TypingIndicator } from './TypingIndicator';
 import { sendChatbotMessage } from '../../services/chatbotService';
+import { useAuth } from '../../context/AuthContext';
 
 export const ChatbotWidget = () => {
+  const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
@@ -23,6 +25,11 @@ export const ChatbotWidget = () => {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isTyping, isOpen]);
+
+  // Strict Policy: AI Assistant floating widget is ONLY rendered when user is authenticated/logged in
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const handleSend = async (text) => {
     const userMsg = {

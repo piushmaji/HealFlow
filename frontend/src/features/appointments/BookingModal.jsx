@@ -16,12 +16,25 @@ export const BookingModal = ({ doctor, isOpen, onClose }) => {
 
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selectedSlot, setSelectedSlot] = useState(doctor?.slots?.[0] || '09:00 AM');
+  const [isInstantDemo, setIsInstantDemo] = useState(false);
   const [reason, setReason] = useState('');
   const [patientName, setPatientName] = useState(patientUser.name);
   const [patientPhone, setPatientPhone] = useState(patientUser.phone);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!doctor) return null;
+
+  const handleToggleInstantDemo = () => {
+    const nextState = !isInstantDemo;
+    setIsInstantDemo(nextState);
+    if (nextState) {
+      setSelectedDate(new Date().toISOString().split('T')[0]);
+      setSelectedSlot('Instant Demo (Immediate)');
+      if (!reason) setReason('Instant Presentation / Live Demonstration');
+    } else {
+      setSelectedSlot(doctor?.slots?.[0] || '09:00 AM');
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -38,8 +51,10 @@ export const BookingModal = ({ doctor, isOpen, onClose }) => {
         patient_email: patientUser.email,
         patient_phone: patientPhone,
         date: selectedDate,
-        time: selectedSlot,
-        reason: reason || 'General Health Consultation',
+        time: isInstantDemo ? 'Instant Demo (Immediate)' : selectedSlot,
+        is_demo: isInstantDemo,
+        is_instant: isInstantDemo,
+        reason: reason || (isInstantDemo ? 'Instant Presentation Demo' : 'General Health Consultation'),
         consultation_fee: doctor.consultation_fee,
       });
 
@@ -83,6 +98,8 @@ export const BookingModal = ({ doctor, isOpen, onClose }) => {
           selectedSlot={selectedSlot}
           onSelectSlot={setSelectedSlot}
           availableSlots={doctor.slots}
+          isInstantDemo={isInstantDemo}
+          onToggleInstantDemo={handleToggleInstantDemo}
         />
 
         {/* Patient Details */}

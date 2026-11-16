@@ -193,6 +193,46 @@ export const LoginPage = () => {
             </button>
           </div>
 
+          {/* Quick Doctor Login Selector (When in Doctor Login Mode) */}
+          {isDoctor && authMode === 'login' && (
+            <div className="mt-4 p-3 rounded-2xl bg-[#F0F4FF] border border-[#CBD8FC] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-[#4C5BBD] tracking-wider flex items-center gap-1">
+                  <Stethoscope className="w-3 h-3" />
+                  <span>Quick Doctor Select (Database)</span>
+                </span>
+                <span className="text-[10px] text-slate-500 font-semibold">11 Active Doctors</span>
+              </div>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setEmail(e.target.value);
+                    setPassword('Doctor@123');
+                    setErrorMessage('');
+                  }
+                }}
+                className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-[#1F1F1F] outline-none cursor-pointer"
+                defaultValue=""
+              >
+                <option value="" disabled>Choose a Doctor to Auto-Fill Credentials...</option>
+                <option value="ananya.roy@healflow.in">Dr. Ananya Roy (Cardiology)</option>
+                <option value="piushmaji@gmail.com">Dr. Piush Maji (Cardiology)</option>
+                <option value="rajesh.varma@healflow.in">Dr. Rajesh K. Varma (General Medicine)</option>
+                <option value="sneha.patel@healflow.in">Dr. Sneha Patel (Dermatology)</option>
+                <option value="vikram.malhotra@healflow.in">Dr. Vikram Malhotra (Orthopedics)</option>
+                <option value="meera.nambiar@healflow.in">Dr. Meera Nambiar (Pediatrics)</option>
+                <option value="rohan.sengupta@healflow.in">Dr. Rohan Sengupta (Neurology)</option>
+                <option value="kavita.deshmukh@healflow.in">Dr. Kavita Deshmukh (General Medicine)</option>
+                <option value="aditya.joshi@healflow.in">Dr. Aditya Joshi (Dermatology)</option>
+                <option value="sanjay.nair@healflow.in">Dr. Sanjay Nair (Orthopedics)</option>
+                <option value="sunita.bansal@healflow.in">Dr. Sunita Bansal (Pediatrics)</option>
+              </select>
+              <p className="text-[10px] text-[#6B6E84]">
+                Default password: <span className="font-mono font-bold text-[#4C5BBD]">Doctor@123</span>
+              </p>
+            </div>
+          )}
+
           {/* Error Message Alert */}
           {errorMessage && (
             <div className="mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200/70 text-rose-900 text-xs font-medium text-left animate-fade-in space-y-1 shadow-xs">

@@ -6,13 +6,13 @@ import { Sparkles } from 'lucide-react';
 
 export const AIAssistantPage = () => {
   return (
-    <div className="max-w-4xl mx-auto space-y-4 font-sans pb-2">
+    <div className="max-w-3xl mx-auto space-y-4 font-sans pb-4">
       <PageHeader
-        title="AI Specialist Suggestion Engine"
-        subtitle="Describe your symptoms in plain language for instant specialist triage & doctor recommendations."
+        title="AI Specialist Guide"
+        subtitle="Conversational symptom triage, voice input, doctor matching, and clinical prescription guidance."
         badge={
           <Badge variant="brand" size="md" icon={Sparkles}>
-            AI Clinical Assistant
+            Live RAG Engine
           </Badge>
         }
       />

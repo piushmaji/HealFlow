@@ -141,6 +141,24 @@ export const PatientDiscoverySection = () => {
       iconColor: '#7C3AED',
       countKey: 'Neurology',
     },
+    {
+      id: 'Dermatology',
+      name: 'Dermatology',
+      searchTarget: 'Dermatology',
+      icon: Sparkles,
+      bgVar: '#FFF7ED',
+      iconColor: '#EA580C',
+      countKey: 'Dermatology',
+    },
+    {
+      id: 'Pediatrics',
+      name: 'Pediatrics',
+      searchTarget: 'Pediatrics',
+      icon: Users,
+      bgVar: '#F0FDF4',
+      iconColor: '#16A34A',
+      countKey: 'Pediatrics',
+    },
   ];
 
   return (
@@ -205,14 +223,14 @@ export const PatientDiscoverySection = () => {
                 setShowDropdown(true);
               }}
               onFocus={() => setShowDropdown(true)}
-              placeholder="Search doctors, specialties..."
+              placeholder="Describe your symptoms or search doctors and specialties..."
               style={{
-                backgroundColor: '#F8FAFF',
-                borderColor: '#DCE5F7',
+                backgroundColor: '#FFFFFF',
+                borderColor: '#CBD5E1',
                 color: '#0F172A',
                 outline: 'none',
               }}
-              className="w-full h-11 sm:h-12 pl-11 pr-11 rounded-[16px] border text-xs sm:text-sm font-semibold placeholder-[#94A3B8] shadow-inner focus:bg-white focus:border-[#4F5FC5] focus:shadow-[0_0_0_3px_rgba(79,95,197,0.15)] transition-all duration-200"
+              className="w-full h-11 sm:h-12 pl-11 pr-11 rounded-[16px] border-2 text-xs sm:text-sm font-semibold placeholder-[#64748B] shadow-sm focus:border-[#4F5FC5] focus:shadow-[0_0_0_3px_rgba(79,95,197,0.18)] transition-all duration-200"
             />
             {searchQuery && (
               <button
@@ -318,8 +336,8 @@ export const PatientDiscoverySection = () => {
           </button>
         </div>
 
-        {/* 4 Compact Specialty Cards (1 row on Desktop, 2 per row on Mobile/Tablet) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-3.5">
+        {/* 6 Clean Specialty Cards in responsive grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
           {SPECIALTY_CARDS.map((spec) => {
             const Icon = spec.icon;
             const docCount = specialtyCounts[spec.countKey];
@@ -356,14 +374,14 @@ export const PatientDiscoverySection = () => {
                 <div className="min-w-0 flex-1">
                   <h4
                     style={{ color: '#0F172A' }}
-                    className="text-xs sm:text-sm font-bold truncate group-hover:text-[#4F5FC5] transition-colors"
+                    className="text-xs font-bold whitespace-nowrap overflow-visible group-hover:text-[#4F5FC5] transition-colors"
                   >
                     {spec.name}
                   </h4>
                   {docCount !== undefined && !isLoadingCounts && (
                     <p
                       style={{ color: '#64748B' }}
-                      className="text-[10px] sm:text-[11px] font-semibold truncate"
+                      className="text-[10px] sm:text-[11px] font-semibold"
                     >
                       {docCount} {docCount === 1 ? 'Doctor' : 'Doctors'}
                     </p>

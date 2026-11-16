@@ -68,7 +68,6 @@ export const DashboardLayout = () => {
         { name: 'Doctor Directory', path: '/doctors', icon: Stethoscope },
         { name: 'AI Medical Guide', path: '/ai-assistant', icon: Sparkles, badge: 'AI' },
         { name: 'My Profile', path: '/doctor/profile', icon: User },
-        { name: 'Style Guide', path: '/style-guide', icon: Palette },
       ]
     : [
         { name: 'Patient Dashboard', path: '/patients/dashboard', icon: LayoutDashboard },
@@ -245,64 +244,47 @@ export const DashboardLayout = () => {
         {/* Main Scrollable Canvas (Uniform X-Axis Padding Across All Pages) */}
         <main className="flex-1 overflow-y-auto pt-0 px-4 sm:px-6 pb-8 no-scrollbar">
           
-          {/* Topbar Header (Uniform Max-Width & Padding Alignment) */}
+          {/* Topbar Header (Seamless & Original Clean Rounded Header) */}
           <div className="max-w-6xl mx-auto">
-            <header className="bg-white text-[#161B33] rounded-b-3xl rounded-t-none px-4 sm:px-6 py-3.5 mb-6 border-0 border-none shadow-xs flex items-center justify-between gap-2.5 mt-0">
+            <header className="bg-white text-[#161B33] rounded-b-3xl rounded-t-none px-6 py-4 mb-6 border-0 shadow-xs flex items-center justify-between gap-3 mt-0">
               
               {/* Left: Mobile Toggle & Page Greeting */}
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
                 <button
                   type="button"
                   onClick={() => setSidebarOpen(true)}
                   style={{ outline: 'none' }}
-                  className="md:hidden p-2 rounded-full text-[#161B33] bg-[#F2F5FF] border-0 hover:bg-slate-200 shadow-xs outline-none focus:outline-none shrink-0"
+                  className="md:hidden p-2 rounded-full text-[#161B33] bg-[#F2F5FF] hover:bg-slate-200 shadow-2xs outline-none focus:outline-none shrink-0 border-0 cursor-pointer"
                 >
                   <Menu className="w-4.5 h-4.5" />
                 </button>
 
                 <div className="flex flex-col justify-center min-w-0">
-                  <h3 className="text-sm sm:text-lg font-black text-[#161B33] font-heading tracking-wide truncate max-w-[130px] xs:max-w-[180px] sm:max-w-none">
-                    {isDoctor ? `Dr. ${activeDoctor.name.split(' ').slice(-1)[0]}` : `Welcome, ${patientUser.name}`}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-lg font-black text-[#161B33] font-heading tracking-wide truncate max-w-[140px] xs:max-w-[200px] sm:max-w-none">
+                      {isDoctor ? `Dr. ${activeDoctor.name.split(' ').slice(-1)[0]}` : `Welcome, ${patientUser.name}`}
+                    </h3>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 hidden sm:inline-block" />
+                  </div>
                   <p className="text-[11px] text-[#4C5BBD] font-semibold hidden md:block leading-tight">
                     {isDoctor ? 'Live OPD Queue & Patient Telemetry' : 'Manage appointments & real-time OPD queue tokens'}
                   </p>
                 </div>
               </div>
 
-              {/* Center & Right: Search Bar, Live Token, Bell, Profile */}
+              {/* Center & Right: Live Token, Bell, Profile */}
               <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <form
-                  onSubmit={handleSearchSubmit}
-                  className="hidden lg:flex items-center relative w-56"
-                >
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search..."
-                    style={{ outline: 'none', boxShadow: 'none' }}
-                    className="w-full bg-[#F2F5FF] border-0 focus:bg-white text-xs text-[#161B33] placeholder-[#A8B1CE] rounded-full pl-4 pr-10 py-2 outline-none focus:outline-none focus:ring-0 focus:border-0 font-medium transition-all shadow-xs"
-                  />
-                  <button
-                    type="submit"
-                    style={{ outline: 'none' }}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-[#4C5BBD] text-white flex items-center justify-center shadow-xs outline-none focus:outline-none"
-                  >
-                    <Search className="w-3.5 h-3.5" />
-                  </button>
-                </form>
 
                 {/* Live Queue Token Badge */}
                 {!isDoctor && activeTrackingAppointment ? (
                   <Link
                     to={`/patients/live-queue/${activeTrackingAppointment.id}`}
                     style={{ outline: 'none' }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-[#F2F5FF] border-0 hover:bg-white text-xs font-bold transition-all shadow-xs outline-none focus:outline-none"
+                    className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-[#F2F5FF] hover:bg-[#E3EAFA] text-xs font-bold text-[#4C5BBD] transition-all shadow-xs border-0 outline-none"
                   >
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                     <span className="text-[10px] text-[#6B6E84] hidden md:inline">Token:</span>
-                    <span className="font-sans text-[#4C5BBD] font-black text-xs tracking-wide">
+                    <span className="font-sans font-black text-xs tracking-wide">
                       {activeTrackingAppointment.token_number}
                     </span>
                   </Link>
@@ -310,10 +292,10 @@ export const DashboardLayout = () => {
                   <Link
                     to="/patients/live-queue"
                     style={{ outline: 'none' }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-[#F2F5FF] border-0 hover:bg-white text-xs font-bold transition-all shadow-xs outline-none focus:outline-none"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F2F5FF] hover:bg-[#E3EAFA] text-xs font-bold text-[#4C5BBD] transition-all border-0 shadow-xs outline-none"
                   >
                     <Clock className="w-3.5 h-3.5 text-[#4C5BBD]" />
-                    <span className="text-xs text-[#4C5BBD] font-bold hidden md:inline">Live Queue</span>
+                    <span className="text-xs font-bold hidden md:inline">Live Queue</span>
                   </Link>
                 ) : null}
 
@@ -323,41 +305,57 @@ export const DashboardLayout = () => {
                     type="button"
                     onClick={() => setShowNotifications(!showNotifications)}
                     style={{ outline: 'none' }}
-                    className="p-2 sm:p-2.5 rounded-full bg-[#F2F5FF] text-[#6B6E84] hover:text-[#4C5BBD] transition-colors relative border-0 shadow-xs outline-none focus:outline-none cursor-pointer"
+                    className="p-2.5 rounded-full bg-[#F2F5FF] hover:bg-[#E3EAFA] text-[#4C5BBD] transition-colors relative border-0 shadow-xs outline-none cursor-pointer"
+                    title="Queue Notifications & Alerts"
                   >
                     <Bell className="w-4 h-4" />
                     {activeTrackingAppointment && (
-                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#4C5BBD]"></span>
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#4C5BBD] animate-pulse"></span>
                     )}
                   </button>
 
+                  {/* Notification Popover Dropdown (Right-Aligned, Non-Obscured) */}
                   {showNotifications && (
                     <>
                       <div
                         onClick={() => setShowNotifications(false)}
-                        className="fixed inset-0 z-40 bg-black/60"
-                      ></div>
-                      <div className="absolute right-0 mt-2 w-72 bg-white text-[#161B33] rounded-2xl border-0 shadow-xl p-4 z-50 text-xs space-y-3 animate-fade-in">
+                        className="fixed inset-0 z-40 bg-transparent"
+                      />
+                      <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white text-[#161B33] rounded-2xl border border-slate-100 shadow-[0_12px_32px_-4px_rgba(31,31,31,0.12)] p-4 z-50 text-xs space-y-3 animate-fade-in font-sans">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                          <span className="font-bold text-[#161B33]">Queue Alerts</span>
-                          <span className="text-[10px] font-bold text-[#4C5BBD] uppercase">
+                          <span className="font-bold text-[#161B33] text-xs">Queue Alerts</span>
+                          <span className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] px-2 py-0.5 rounded-full uppercase">
                             {activeTrackingAppointment ? '1 Active' : '0 Alerts'}
                           </span>
                         </div>
+
                         {activeTrackingAppointment ? (
-                          <div className="flex items-start gap-2.5 p-2 rounded-xl bg-[#F8FAFE] border-0 shadow-xs">
+                          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[#F8FAFE] border-0 shadow-xs">
                             <Clock className="w-4 h-4 text-[#4C5BBD] shrink-0 mt-0.5" />
-                            <div>
+                            <div className="space-y-0.5">
                               <p className="font-bold text-[#161B33]">Token Active</p>
-                              <p className="text-[11px] text-[#6B6E84]">
-                                Token {activeTrackingAppointment.token_number} with {activeTrackingAppointment.doctor_name || 'Dr. Specialist'} ({activeTrackingAppointment.room_number || 'Room 101'}).
+                              <p className="text-[11px] text-[#6B6E84] leading-relaxed">
+                                Token <strong>#{activeTrackingAppointment.token_number}</strong> with {activeTrackingAppointment.doctor_name || 'Dr. Specialist'} ({activeTrackingAppointment.room_number || 'Room 101'}).
                               </p>
+                              <Link
+                                to={`/patients/live-queue/${activeTrackingAppointment.id}`}
+                                onClick={() => setShowNotifications(false)}
+                                className="inline-block mt-1 text-[11px] font-bold text-[#4C5BBD] hover:underline"
+                              >
+                                View Live Tracker →
+                              </Link>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-[11px] text-[#6B6E84] text-center py-2">
-                            No active queue alerts at this time.
-                          </p>
+                          <div className="py-4 text-center">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-1.5">
+                              <Bell className="w-4 h-4" />
+                            </div>
+                            <p className="font-semibold text-slate-700 text-xs">No New Alerts</p>
+                            <p className="text-[11px] text-[#6B6E84] mt-0.5 leading-relaxed">
+                              You don't have any waiting tokens or pending doctor call notifications right now.
+                            </p>
+                          </div>
                         )}
                       </div>
                     </>
@@ -368,6 +366,7 @@ export const DashboardLayout = () => {
                 <Link
                   to={isDoctor ? '/doctor/profile' : '/patients/profile'}
                   className="flex items-center pl-1 sm:pl-2 shrink-0"
+                  title="My Profile"
                 >
                   <img
                     src={userAvatar}

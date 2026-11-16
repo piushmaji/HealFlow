@@ -259,8 +259,21 @@ export const AuthProvider = ({ children }) => {
     if (isSupabaseConfigured && email && password) {
       const data = await signInWithEmail(email, password);
       if (data?.user) {
-        setRole(selectedRole);
-        localStorage.setItem('smart_clinic_role', selectedRole);
+        // Strict Role Verification: Ensure account role matches the selected portal!
+        const profile = await getUserProfile(data.user.id);
+        const actualRole = profile?.role || data.user.user_metadata?.role;
+
+        if (actualRole && actualRole !== selectedRole) {
+          if (actualRole === 'doctor') {
+            throw new Error('Access Denied: This email belongs to a Doctor account. Please select "Doctor Portal" to log in.');
+          } else {
+            throw new Error('Access Denied: This email belongs to a Patient account. Please select "Patient Portal" to log in.');
+          }
+        }
+
+        const resolvedRole = actualRole || selectedRole;
+        setRole(resolvedRole);
+        localStorage.setItem('smart_clinic_role', resolvedRole);
         localStorage.setItem('smart_clinic_auth', 'true');
         setIsAuthenticated(true);
         await loadProfile(data.user.id);

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQueue } from '../context/QueueContext';
 import { useAuth } from '../context/AuthContext';
 import { LiveQueueTracker } from '../features/queue/LiveQueueTracker';
-import { QueueControlPanel } from '../features/queue/QueueControlPanel';
+import { DoctorLiveOPDControlRoom } from '../features/queue/DoctorLiveOPDControlRoom';
 import { calculateEstimatedWaitTime } from '../utils/formatters';
 import { Clock, ArrowLeft, Ticket, ArrowRight, MessageSquare, CalendarX, Stethoscope, Calendar, Building2 } from 'lucide-react';
 
@@ -13,6 +13,11 @@ export const LiveQueuePage = () => {
   const { isDoctor } = useAuth();
   const { appointments, queues, getPatientsAhead } = useQueue();
 
+  // If logged in as Doctor: render the full dedicated OPD Control Room
+  if (isDoctor) {
+    return <DoctorLiveOPDControlRoom />;
+  }
+
   const scheduledAppointments = appointments.filter((a) => a.status === 'Scheduled');
 
   // If specific appointment ID is passed in URL
@@ -21,7 +26,7 @@ export const LiveQueuePage = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8 font-sans">
       
-      {/* 1. Clean Consolidated Header Banner */}
+      {/* 1. Clean Consolidated Header Banner (Patient Side) */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
@@ -37,11 +42,7 @@ export const LiveQueuePage = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg sm:text-xl font-black text-[#1F1F1F] font-heading tracking-wide">
-                {isDoctor
-                  ? 'Doctor OPD Live Queue Control'
-                  : selectedAppointment
-                  ? `Live Queue Tracker`
-                  : 'Live OPD Queue Telemetry'}
+                {selectedAppointment ? `Live Queue Tracker` : 'Live OPD Queue Telemetry'}
               </h1>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 shadow-2xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -49,9 +50,7 @@ export const LiveQueuePage = () => {
               </span>
             </div>
             <p className="text-xs text-[#6B6E84] mt-0.5 font-medium">
-              {isDoctor
-                ? 'Manage consultation queue flow and call next patient tokens.'
-                : selectedAppointment
+              {selectedAppointment
                 ? `Consultation with ${selectedAppointment.doctor_name || 'Doctor'} (${selectedAppointment.room_number || 'Room 101'})`
                 : 'Select an active appointment below to track live token progression.'}
             </p>
@@ -59,7 +58,7 @@ export const LiveQueuePage = () => {
         </div>
 
         {/* Header Quick Actions */}
-        {!isDoctor && selectedAppointment && (
+        {selectedAppointment && (
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
@@ -73,10 +72,8 @@ export const LiveQueuePage = () => {
         )}
       </div>
 
-      {/* 2. Main Workspace Body */}
-      {isDoctor ? (
-        <QueueControlPanel />
-      ) : selectedAppointment ? (
+      {/* 2. Main Workspace Body (Patient Side) */}
+      {selectedAppointment ? (
         /* If specific appointment is selected: Render clean dedicated tracker */
         <LiveQueueTracker appointment={selectedAppointment} />
       ) : scheduledAppointments.length > 0 ? (

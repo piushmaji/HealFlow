@@ -67,15 +67,11 @@ export const QueueControlPanel = () => {
   const nextWaitingPatient = waitingAppointments[0] || null;
 
   // 3. Actions
-  const handleCallNext = async () => {
+  const handleCallNext = async (customTargetApt = null) => {
     setIsCalling(true);
     try {
-      let res = null;
-      if (activeDoctor?.id) {
-        res = await callNextPatientInBackend(activeDoctor.id);
-      }
-      const calledToken = res?.current_token || (nextWaitingPatient ? nextWaitingPatient.token_number : null);
-      const targetApt = res?.appointment || nextWaitingPatient || currentServingAppointment;
+      const targetApt = customTargetApt || nextWaitingPatient || currentServingAppointment;
+      const calledToken = targetApt?.token_number;
 
       if (targetApt && targetApt.id) {
         if (isSupabaseConfigured) {
@@ -84,17 +80,28 @@ export const QueueControlPanel = () => {
             .update({ status: 'In Session' })
             .eq('id', targetApt.id);
 
-          await supabase
-            .from('queues')
-            .update({
-              current_token: targetApt.token_number,
-              serving_patient: targetApt.patient_name || 'Patient',
-              total_in_queue: waitingAppointments.length,
-            })
-            .eq('doctor_id', activeDoctor.id);
+          if (activeDoctor?.id) {
+            await supabase
+              .from('queues')
+              .update({
+                current_token: targetApt.token_number,
+                serving_patient: targetApt.patient_name || 'Patient',
+                total_in_queue: Math.max(0, waitingAppointments.length - 1),
+                last_updated: new Date().toISOString(),
+              })
+              .eq('doctor_id', activeDoctor.id);
+          }
         }
 
-        callNextPatient(activeDoctor.id, calledToken);
+        try {
+          if (activeDoctor?.id) {
+            await callNextPatientInBackend(activeDoctor.id);
+          }
+        } catch (beErr) {
+          console.warn('Backend queue notice:', beErr.message);
+        }
+
+        callNextPatient(activeDoctor?.id, calledToken);
         if (updateAppointmentStatus) {
           updateAppointmentStatus(targetApt.id, 'In Session');
         }
@@ -103,9 +110,9 @@ export const QueueControlPanel = () => {
         return;
       }
 
-      showToast(`Token called for ${activeDoctor.room_number || 'Room 101'}.`, 'success');
+      showToast(`No patient available to call.`, 'info');
     } catch (err) {
-      callNextPatient(activeDoctor.id);
+      console.error('Call next patient error:', err);
       if (nextWaitingPatient?.id) {
         if (updateAppointmentStatus) {
           updateAppointmentStatus(nextWaitingPatient.id, 'In Session');
@@ -181,7 +188,7 @@ export const QueueControlPanel = () => {
     }
   };
 
-  const handleStartConsultation = (aptId) => {
+  const handleStartConsultation = async (aptId) => {
     const apt = docAppointments.find((a) => a.id === aptId);
     if (apt) {
       const isDemo = apt.is_demo || apt.is_instant || /instant|demo|immediate/i.test(apt.slot_time || '') || /instant|demo|presentation/i.test(apt.reason || '');
@@ -190,11 +197,34 @@ export const QueueControlPanel = () => {
         showToast(`Cannot enter chamber yet: ${timeCheck.message}`, 'warning');
         return;
       }
+
+      // If patient is not yet 'In Session', automatically admit them in Supabase & Queue!
+      if (apt.status !== 'In Session') {
+        try {
+          if (isSupabaseConfigured) {
+            await supabase.from('appointments').update({ status: 'In Session' }).eq('id', apt.id);
+            if (activeDoctor?.id) {
+              await supabase.from('queues').update({
+                current_token: apt.token_number,
+                serving_patient: apt.patient_name || 'Patient',
+                last_updated: new Date().toISOString(),
+              }).eq('doctor_id', activeDoctor.id);
+            }
+          }
+          if (updateAppointmentStatus) {
+            updateAppointmentStatus(apt.id, 'In Session');
+          }
+          callNextPatient(activeDoctor?.id, apt.token_number);
+          showToast(`Admitted token ${apt.token_number} (${apt.patient_name}) into chamber!`, 'success');
+        } catch (e) {
+          console.warn('Admission sync notice:', e);
+        }
+      }
     }
     navigate(`/patients/consultation/${aptId}`);
   };
 
-  const handleStartCall = (aptId) => {
+  const handleStartCall = async (aptId) => {
     const apt = docAppointments.find((a) => a.id === aptId);
     if (apt) {
       const isDemo = apt.is_demo || apt.is_instant || /instant|demo|immediate/i.test(apt.slot_time || '') || /instant|demo|presentation/i.test(apt.reason || '');
@@ -202,6 +232,26 @@ export const QueueControlPanel = () => {
       if (!timeCheck.isActive) {
         showToast(`Cannot call yet: ${timeCheck.message}`, 'warning');
         return;
+      }
+
+      // If patient is not yet 'In Session', admit them in Supabase
+      if (apt.status !== 'In Session') {
+        try {
+          if (isSupabaseConfigured) {
+            await supabase.from('appointments').update({ status: 'In Session' }).eq('id', apt.id);
+            if (activeDoctor?.id) {
+              await supabase.from('queues').update({
+                current_token: apt.token_number,
+                serving_patient: apt.patient_name || 'Patient',
+                last_updated: new Date().toISOString(),
+              }).eq('doctor_id', activeDoctor.id);
+            }
+          }
+          if (updateAppointmentStatus) {
+            updateAppointmentStatus(apt.id, 'In Session');
+          }
+          callNextPatient(activeDoctor?.id, apt.token_number);
+        } catch (e) {}
       }
     }
     navigate(`/patients/consultation/${aptId}?action=video`);

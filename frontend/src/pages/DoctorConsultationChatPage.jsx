@@ -300,7 +300,7 @@ export const DoctorConsultationChatPage = () => {
     return `${String(mins).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
   };
 
-  // Other appointments for this doctor (for Next Patient card)
+  // Other appointments for this doctor (for Next Patient card and Queue stats)
   const doctorAppointments = appointments.filter(
     (a) =>
       a.doctor_id === activeDoctor?.id ||
@@ -309,6 +309,12 @@ export const DoctorConsultationChatPage = () => {
   const nextPatient = doctorAppointments.find(
     (a) => a.id !== appointment?.id && (a.status === 'Scheduled' || a.status === 'Checked In')
   );
+  const waitingPatientsLeft = doctorAppointments.filter(
+    (a) => a.id !== appointment?.id && (a.status === 'Scheduled' || a.status === 'Checked In')
+  ).length;
+  const completedPatientsCount = doctorAppointments.filter(
+    (a) => a.status === 'Completed'
+  ).length;
 
   // Chat message management
   const [inputMessage, setInputMessage] = useState('');
@@ -1077,32 +1083,42 @@ export const DoctorConsultationChatPage = () => {
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h4 className="text-xs font-black uppercase tracking-wider text-[#1F1F1F] flex items-center gap-1.5 font-heading">
                   <Users className="w-4 h-4 text-amber-500" />
-                  <span>Next Patient in Queue</span>
+                  <span>OPD Queue Progress</span>
                 </h4>
                 <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                  Waiting Next
+                  {waitingPatientsLeft} Waiting Left
                 </span>
               </div>
 
+              {/* Progress Counters Strip */}
+              <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/60">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase block">Waiting Left</span>
+                  <p className="text-base font-black text-amber-900 mt-0.5">{waitingPatientsLeft}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/60">
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase block">Completed Today</span>
+                  <p className="text-base font-black text-emerald-900 mt-0.5">{completedPatientsCount}</p>
+                </div>
+              </div>
+
               {nextPatient ? (
-                <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200/60 space-y-2">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-black text-[#1F1F1F]">{nextPatient.patient_name}</p>
-                    <span className="px-2 py-0.5 rounded-lg text-xs font-black bg-white text-[#4C5BBD] border border-slate-200">
+                    <span className="text-[10px] font-bold text-[#6B6E84] uppercase">Next in line:</span>
+                    <span className="px-2 py-0.2 rounded-md text-xs font-black bg-white text-[#4C5BBD] border border-slate-200">
                       {nextPatient.token_number}
                     </span>
                   </div>
-                  <p className="text-xs text-[#6B6E84]">
-                    Slot: {nextPatient.slot_time || nextPatient.time} • Reason: {nextPatient.reason || 'Follow-up'}
-                  </p>
-                  <p className="text-[10px] text-amber-800 font-bold">
-                    Will be called into chamber once current consultation completes.
+                  <p className="text-xs font-black text-[#1F1F1F]">{nextPatient.patient_name}</p>
+                  <p className="text-[11px] text-[#6B6E84]">
+                    Slot: {nextPatient.slot_time || nextPatient.time} • {nextPatient.reason || 'General checkup'}
                   </p>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-[#F8FAFE] text-center space-y-1">
-                  <p className="text-xs font-bold text-[#1F1F1F]">No upcoming patients in waiting hall</p>
-                  <p className="text-[10px] text-[#6B6E84]">OPD queue clear after this consultation</p>
+                <div className="p-3 rounded-2xl bg-[#F8FAFE] text-center space-y-0.5">
+                  <p className="text-xs font-bold text-[#1F1F1F]">No more patients waiting</p>
+                  <p className="text-[10px] text-[#6B6E84]">Queue is clear after this consultation</p>
                 </div>
               )}
             </div>

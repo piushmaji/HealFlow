@@ -355,8 +355,39 @@ export const QueueProvider = ({ children }) => {
     return ahead > 0 ? ahead : 0;
   };
 
-  // Refresh appointments from Supabase
+  // Refresh appointments from Supabase (for both Doctor and Patient)
   const refreshAppointments = async () => {
+    if (isDoctor && activeDoctor?.id) {
+      try {
+        let docApts = [];
+        if (isSupabaseConfigured) {
+          const { data: dbApts } = await supabase
+            .from('appointments')
+            .select('*')
+            .eq('doctor_id', activeDoctor.id)
+            .order('created_at', { ascending: true });
+          if (Array.isArray(dbApts)) docApts = dbApts;
+        }
+        if (docApts.length === 0) {
+          const backendApts = await fetchDoctorAppointmentsFromBackend(activeDoctor.id);
+          if (Array.isArray(backendApts)) docApts = backendApts;
+        }
+        const formatted = docApts.map((apt) => ({
+          ...apt,
+          doctor_name: activeDoctor.name || 'Dr. Specialist',
+          doctor_avatar: activeDoctor.avatar_url || '',
+          room_number: activeDoctor.room_number || 'Room 101',
+          hospital: activeDoctor.hospital || 'HealFlow Clinic',
+          date: apt.slot_date,
+          time: apt.slot_time,
+        }));
+        setAppointments(formatted);
+        return formatted;
+      } catch (err) {
+        console.warn('[QueueContext] doctor refreshAppointments error:', err.message);
+      }
+    }
+
     const pId = patientUser?.id || currentUser?.id;
     const pEmail = patientUser?.email || currentUser?.email;
 
@@ -365,7 +396,7 @@ export const QueueProvider = ({ children }) => {
         const list = await getPatientAppointments({ patientId: pId, patientEmail: pEmail });
         const dbList = Array.isArray(list) ? list : [];
         setAppointments(dbList);
-        const active = dbList.find((a) => a.status === 'Scheduled');
+        const active = dbList.find((a) => a.status === 'Scheduled' || a.status === 'In Session');
         setActiveTrackingAppointment(active || dbList[0] || null);
         return dbList;
       } catch (err) {

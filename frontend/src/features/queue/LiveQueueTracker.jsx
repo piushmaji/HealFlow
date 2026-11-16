@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueue } from '../../context/QueueContext';
 import { useToast } from '../../context/ToastContext';
 import { calculateEstimatedWaitTime, isSlotActiveNowIST } from '../../utils/formatters';
+import { supabase, isSupabaseConfigured } from '../../services/supabase/client';
 import {
   Clock,
   MapPin,
@@ -22,12 +23,60 @@ import {
 
 export const LiveQueueTracker = ({ appointment }) => {
   const navigate = useNavigate();
-  const { queues, getPatientsAhead } = useQueue();
+  const { queues, getPatientsAhead, updateAppointmentStatus } = useQueue();
   const { showToast } = useToast();
   
+  const [liveAppointment, setLiveAppointment] = useState(appointment);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  if (!appointment) {
+  // Sync prop changes
+  useEffect(() => {
+    setLiveAppointment(appointment);
+  }, [appointment]);
+
+  // Real-time Supabase subscription directly on this specific appointment row
+  useEffect(() => {
+    if (!appointment?.id || !isSupabaseConfigured) return;
+
+    // Initial fetch to guarantee latest DB status
+    supabase
+      .from('appointments')
+      .select('*')
+      .eq('id', appointment.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setLiveAppointment((prev) => ({ ...prev, ...data }));
+        }
+      });
+
+    const channel = supabase
+      .channel(`public:appointment_live_${appointment.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'appointments',
+          filter: `id=eq.${appointment.id}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            setLiveAppointment((prev) => ({ ...prev, ...payload.new }));
+            if (updateAppointmentStatus) {
+              updateAppointmentStatus(payload.new.id, payload.new.status);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [appointment?.id, updateAppointmentStatus]);
+
+  if (!liveAppointment) {
     return (
       <div className="text-center p-8 bg-white rounded-3xl border border-slate-200/80 shadow-xs font-sans">
         <p className="text-[#6B6E84] text-sm font-medium">No active appointment selected.</p>
@@ -35,29 +84,33 @@ export const LiveQueueTracker = ({ appointment }) => {
     );
   }
 
-  const defaultTokenPrefix = (appointment.specialty || 'OPD').substring(0, 4).toUpperCase();
-  const doctorQueue = queues[appointment.doctor_id] || {
+  const currentApt = liveAppointment;
+  const defaultTokenPrefix = (currentApt.specialty || 'OPD').substring(0, 4).toUpperCase();
+  const doctorQueue = queues[currentApt.doctor_id] || {
     current_token: `${defaultTokenPrefix}-001`,
-    serving_patient: appointment.patient_name || 'Patient',
+    serving_patient: currentApt.patient_name || 'Patient',
     total_in_queue: 1,
     status: 'ACTIVE',
   };
 
-  const isCompleted = appointment.status === 'Completed';
-  const isInSession = appointment.status === 'In Session';
+  const isCompleted = currentApt.status === 'Completed';
+  // Patient is admitted if DB status is 'In Session' OR doctor's queue current_token matches this patient's token
+  const isQueueCurrentToken = doctorQueue.current_token && doctorQueue.current_token !== 'None' && doctorQueue.current_token === currentApt.token_number;
+  const isInSession = currentApt.status === 'In Session' || isQueueCurrentToken;
+
   const isDemo =
-    appointment.is_demo ||
-    appointment.is_instant ||
-    /instant|demo|immediate/i.test(appointment.slot_time || appointment.time || '') ||
-    /instant|demo|presentation/i.test(appointment.reason || '');
+    currentApt.is_demo ||
+    currentApt.is_instant ||
+    /instant|demo|immediate/i.test(currentApt.slot_time || currentApt.time || '') ||
+    /instant|demo|presentation/i.test(currentApt.reason || '');
 
   const timeCheck = isSlotActiveNowIST(
-    appointment.date || appointment.slot_date,
-    appointment.time || appointment.slot_time,
+    currentApt.date || currentApt.slot_date,
+    currentApt.time || currentApt.slot_time,
     isDemo
   );
 
-  const patientsAhead = isCompleted ? 0 : getPatientsAhead(appointment.doctor_id, appointment.token_number);
+  const patientsAhead = isCompleted ? 0 : getPatientsAhead(currentApt.doctor_id, currentApt.token_number);
   const estimatedWait = calculateEstimatedWaitTime(patientsAhead);
   // Strict admission: It is ONLY your turn to enter when doctor explicitly admits (isInSession) AND time slot has arrived (or isDemo)
   const isYourTurn = !isCompleted && isInSession && timeCheck.isActive;
@@ -66,16 +119,22 @@ export const LiveQueueTracker = ({ appointment }) => {
   // Auto notification ONLY once when turn actually arrives
   useEffect(() => {
     if (isYourTurn && !isCompleted) {
-      const notifiedKey = `turn_notified_${appointment.id}_${appointment.token_number}`;
+      const notifiedKey = `turn_notified_${currentApt.id}_${currentApt.token_number}`;
       if (!sessionStorage.getItem(notifiedKey)) {
         sessionStorage.setItem(notifiedKey, 'true');
-        showToast(`IT'S YOUR TURN NOW! Please enter ${appointment.room_number || 'Room 101'}.`, 'success');
+        showToast(`IT'S YOUR TURN NOW! Please enter ${currentApt.room_number || 'Room 101'}.`, 'success');
       }
     }
-  }, [isYourTurn, isCompleted, appointment.id, appointment.token_number, appointment.room_number, showToast]);
+  }, [isYourTurn, isCompleted, currentApt.id, currentApt.token_number, currentApt.room_number, showToast]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
+    if (isSupabaseConfigured && currentApt?.id) {
+      const { data } = await supabase.from('appointments').select('*').eq('id', currentApt.id).maybeSingle();
+      if (data) {
+        setLiveAppointment((prev) => ({ ...prev, ...data }));
+      }
+    }
     showToast('Queue status refreshed live.', 'info');
     setTimeout(() => setIsRefreshing(false), 500);
   };
@@ -89,7 +148,7 @@ export const LiveQueueTracker = ({ appointment }) => {
       showToast('Please wait outside. Chamber unlocks when doctor admits you.', 'warning');
       return;
     }
-    navigate(`/patients/consultation/${appointment.id}`);
+    navigate(`/patients/consultation/${currentApt.id}`);
   };
 
   return (
@@ -108,14 +167,14 @@ export const LiveQueueTracker = ({ appointment }) => {
                   Turn Called Now
                 </span>
                 <span className="text-xs text-emerald-100 font-bold">
-                  {appointment.room_number || 'Room 101'}
+                  {currentApt.room_number || 'Room 101'}
                 </span>
               </div>
               <h2 className="text-base sm:text-lg font-black font-heading tracking-tight mt-0.5">
-                Token #{appointment.token_number} — Please Enter Doctor's Room
+                Token #{currentApt.token_number} — Please Enter Doctor's Room
               </h2>
               <p className="text-xs text-emerald-50 font-medium">
-                {appointment.doctor_name} is waiting for you at {appointment.hospital || 'HealFlow Clinic'}.
+                {currentApt.doctor_name} is waiting for you at {currentApt.hospital || 'HealFlow Clinic'}.
               </p>
             </div>
           </div>
@@ -140,7 +199,7 @@ export const LiveQueueTracker = ({ appointment }) => {
             <div>
               <h3 className="text-xs font-bold text-slate-800">Consultation Finished</h3>
               <p className="text-[11px] text-slate-500">
-                Your consultation with {appointment.doctor_name} has ended.
+                Your consultation with {currentApt.doctor_name} has ended.
               </p>
             </div>
           </div>
@@ -161,24 +220,24 @@ export const LiveQueueTracker = ({ appointment }) => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <img
-              src={appointment.doctor_avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'}
-              alt={appointment.doctor_name}
+              src={currentApt.doctor_avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'}
+              alt={currentApt.doctor_name}
               className="w-12 h-12 rounded-2xl object-cover border border-slate-200/70 shadow-2xs shrink-0"
             />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black text-[#1F1F1F] font-heading truncate">
-                  {appointment.doctor_name}
+                  {currentApt.doctor_name}
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#F2F5FF] text-[#4C5BBD] border border-slate-200/70">
-                  {appointment.specialty}
+                  {currentApt.specialty}
                 </span>
               </div>
               <p className="text-xs text-[#6B6E84] flex items-center gap-1.5 font-medium mt-0.5">
                 <Building2 className="w-3.5 h-3.5 text-[#4C5BBD] shrink-0" />
-                <span>{appointment.hospital || 'HealFlow OPD Clinic'}</span>
+                <span>{currentApt.hospital || 'HealFlow OPD Clinic'}</span>
                 <span>•</span>
-                <span className="font-bold text-[#1F1F1F]">{appointment.room_number || 'Room 101'}</span>
+                <span className="font-bold text-[#1F1F1F]">{currentApt.room_number || 'Room 101'}</span>
               </p>
             </div>
           </div>

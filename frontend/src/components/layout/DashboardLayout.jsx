@@ -5,7 +5,6 @@ import { useQueue } from '../../context/QueueContext';
 import { ToastContainer } from '../common/Toast';
 import { ChatbotWidget } from '../chatbot/ChatbotWidget';
 import { ConfirmActionModal } from '../ui/ConfirmActionModal';
-import { IncomingConsultationNotification } from '../../features/dashboard/IncomingConsultationNotification';
 import { HealFlowLogo } from '../common/HealFlowLogo';
 import { HealFlowIcon } from '../common/HealFlowIcon';
 import {
@@ -390,7 +389,6 @@ export const DashboardLayout = () => {
         
         <ChatbotWidget />
         <ToastContainer />
-        <IncomingConsultationNotification />
 
         {/* Global Sign Out Confirmation Popup */}
         <ConfirmActionModal

@@ -43,6 +43,10 @@ import {
   Paperclip,
   Check,
   Sparkles,
+  Image as ImageIcon,
+  Download,
+  Eye,
+  X,
 } from 'lucide-react';
 
 export const DoctorConsultationChatPage = () => {
@@ -347,6 +351,8 @@ export const DoctorConsultationChatPage = () => {
 
   // Chat message management
   const [inputMessage, setInputMessage] = useState('');
+  const [selectedImageAttachment, setSelectedImageAttachment] = useState(null); // { dataUrl, name, size }
+  const [previewModalImage, setPreviewModalImage] = useState(null); // full view modal
   const [messages, setMessages] = useState([]);
   const chatBottomRef = useRef(null);
 
@@ -355,27 +361,61 @@ export const DoctorConsultationChatPage = () => {
     try {
       const dbMsgs = await fetchConsultationMessagesFromBackend(appointmentId);
       if (Array.isArray(dbMsgs) && dbMsgs.length > 0) {
-        setMessages(
-          dbMsgs.map((m) => {
+        setMessages((prev) => {
+          const formattedDbMsgs = dbMsgs.map((m) => {
             const isDocMsg = m.metadata?.sender_role === 'doctor' || m.sender === 'system';
             return {
               id: m.id,
               sender: m.metadata?.sender_name || (isDocMsg ? 'Doctor' : 'Patient'),
               text: m.content,
+              imageUrl: m.metadata?.image_url || null,
+              fileName: m.metadata?.file_name || null,
               time: m.metadata?.created_at
                 ? new Date(m.metadata.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : 'Just now',
               senderRole: m.metadata?.sender_role || (isDocMsg ? 'doctor' : 'patient'),
               isDoctor: isDocMsg,
             };
-          })
-        );
+          });
+
+          // Strictly deduplicate: only retain optimistic in-flight messages if NOT already recorded in DB
+          const recentOptimistic = prev.filter((p) => {
+            const isLocal = p.id.startsWith('msg-') || p.id.startsWith('rt-');
+            if (!isLocal) return false;
+
+            // Check if this optimistic message has arrived in DB
+            const alreadyInDb = formattedDbMsgs.some((db) => {
+              if (db.senderRole !== p.senderRole) return false;
+
+              // If image message: match by fileName or text or imageUrl
+              if (p.imageUrl || db.imageUrl) {
+                if (p.fileName && db.fileName && p.fileName === db.fileName) return true;
+                if (p.imageUrl && db.imageUrl && p.imageUrl === db.imageUrl) return true;
+                // If text matched and both have images/attachments
+                if (db.imageUrl && p.imageUrl) return true;
+              }
+
+              // Text message match
+              const dbClean = (db.text || '').trim();
+              const pClean = (p.text || '').trim();
+              if (dbClean && pClean && dbClean === pClean) return true;
+
+              return false;
+            });
+
+            return !alreadyInDb;
+          });
+
+          return [...formattedDbMsgs, ...recentOptimistic];
+        });
       } else if (messages.length === 0 && appointment) {
         setMessages([
           {
             id: 'init-welcome',
             sender: `${appointment.doctor_name || 'Doctor'} OPD Chamber`,
-            text: `Welcome! Live consultation channel for token ${appointment.token_number} is open. You may chat and launch audio/video calls now.`,
+            text: `Welcome! Live consultation channel for token ${appointment.token_number} is open. You may share prescriptions/reports and chat now.`,
+            imageUrl: null,
+            fileName: null,
             time: 'Now',
             senderRole: 'doctor',
             isDoctor: true,
@@ -475,8 +515,22 @@ export const DoctorConsultationChatPage = () => {
       if (!payload) return;
       console.log('[Supabase Realtime] Received NEW_CHAT_MESSAGE:', payload);
       setMessages((prev) => {
-        // Prevent duplicate if already received or added
-        if (prev.some((m) => m.id === payload.id || (m.text === payload.text && Math.abs(new Date(m.timestamp || 0) - new Date(payload.timestamp || 0)) < 2000))) {
+        // Prevent duplicate if already present in message state
+        if (
+          prev.some((m) => {
+            if (m.id === payload.id) return true;
+            if (m.senderRole === payload.senderRole) {
+              if (payload.imageUrl && m.imageUrl) {
+                if (payload.fileName && m.fileName && payload.fileName === m.fileName) return true;
+                if (payload.imageUrl === m.imageUrl) return true;
+              }
+              const mText = (m.text || '').trim();
+              const pText = (payload.text || '').trim();
+              if (mText && pText && mText === pText) return true;
+            }
+            return false;
+          })
+        ) {
           return prev;
         }
         const isDocMsg = payload.senderRole === 'doctor';
@@ -486,6 +540,8 @@ export const DoctorConsultationChatPage = () => {
             id: payload.id || `rt-${Date.now()}`,
             sender: payload.sender || (isDocMsg ? 'Doctor' : 'Patient'),
             text: payload.text,
+            imageUrl: payload.imageUrl || null,
+            fileName: payload.fileName || null,
             time: payload.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             senderRole: payload.senderRole || (isDocMsg ? 'doctor' : 'patient'),
             isDoctor: isDocMsg,
@@ -596,8 +652,12 @@ export const DoctorConsultationChatPage = () => {
     setIsPeerConnected(false);
   };
 
-  // Launch Call (Audio or Video)
+  // Launch Call (Audio or Video) - STRICTLY Doctor Only
   const handleStartCall = async (type) => {
+    if (!isDoctor) {
+      showToast('Only the consulting doctor can initiate telemedicine calls.', 'info');
+      return;
+    }
     setPermissionPrompt(type);
   };
 
@@ -787,13 +847,20 @@ export const DoctorConsultationChatPage = () => {
     }
   };
 
-  // Send Chat Message
+  // Send Chat Message (With Image Attachment Support)
   const handleSendMessage = async (e) => {
     e?.preventDefault();
-    if (!inputMessage.trim() || isSending) return;
+    const hasImage = !!selectedImageAttachment?.dataUrl;
+    const hasText = !!inputMessage.trim();
+
+    if ((!hasText && !hasImage) || isSending) return;
 
     const messageContent = inputMessage.trim();
+    const attachedImage = selectedImageAttachment?.dataUrl || null;
+    const attachedFileName = selectedImageAttachment?.name || null;
+
     setInputMessage('');
+    setSelectedImageAttachment(null);
     setIsSending(true);
 
     const msgId = `msg-${Date.now()}`;
@@ -802,7 +869,9 @@ export const DoctorConsultationChatPage = () => {
     const optimisticMsg = {
       id: msgId,
       sender: myName,
-      text: messageContent,
+      text: messageContent || (hasImage ? (isDoctor ? 'Prescription / Clinical Rx' : 'Medical Report / Prescription') : ''),
+      imageUrl: attachedImage,
+      fileName: attachedFileName,
       time: timestampStr,
       senderRole: myRole,
       isDoctor: isDoctor,
@@ -819,7 +888,9 @@ export const DoctorConsultationChatPage = () => {
         payload: {
           id: msgId,
           sender: myName,
-          text: messageContent,
+          text: optimisticMsg.text,
+          imageUrl: attachedImage,
+          fileName: attachedFileName,
           time: timestampStr,
           senderRole: myRole,
           timestamp: Date.now(),
@@ -829,18 +900,25 @@ export const DoctorConsultationChatPage = () => {
 
     // 2. Direct persistence to Supabase chat_messages table
     if (isSupabaseConfigured) {
+      const meta = {
+        appointment_id: appointmentId,
+        sender_name: myName,
+        sender_role: myRole,
+        created_at: new Date().toISOString(),
+      };
+      if (attachedImage) {
+        meta.type = 'image';
+        meta.image_url = attachedImage;
+        meta.file_name = attachedFileName;
+      }
+
       supabase
         .from('chat_messages')
         .insert({
           session_id: appointmentId,
           sender: isDoctor ? 'assistant' : 'user',
-          content: messageContent,
-          metadata: {
-            appointment_id: appointmentId,
-            sender_name: myName,
-            sender_role: myRole,
-            created_at: new Date().toISOString(),
-          },
+          content: optimisticMsg.text,
+          metadata: meta,
         })
         .then(({ error }) => {
           if (error) console.warn('[Supabase] chat_messages insert notice:', error.message);
@@ -852,6 +930,8 @@ export const DoctorConsultationChatPage = () => {
       await sendConsultationMessageToBackend(appointmentId, {
         sender: myName,
         content: messageContent,
+        image_url: attachedImage,
+        file_name: attachedFileName,
         sender_email: isDoctor ? activeDoctor?.email || '' : patientUser?.email || '',
         sender_role: myRole,
       });
@@ -979,16 +1059,16 @@ export const DoctorConsultationChatPage = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-10 font-sans">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 px-3 sm:px-4 lg:px-6 pb-12 font-sans">
       
       {/* 1. TOP HEADER BAR: Clinical Profile & Quick Call Actions */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 w-full md:w-auto">
           <button
             type="button"
             onClick={() => (isDoctor ? navigate('/live-queue') : navigate(`/patients/live-queue/${appointment.id}`))}
             style={{ outline: 'none' }}
-            className="p-2.5 rounded-full bg-[#F8FAFE] text-[#6B6E84] hover:text-[#4C5BBD] hover:bg-[#F2F5FF] border border-slate-200/80 transition-all shadow-xs cursor-pointer"
+            className="p-2 sm:p-2.5 rounded-full bg-[#F8FAFE] text-[#6B6E84] hover:text-[#4C5BBD] hover:bg-[#F2F5FF] border border-slate-200/80 transition-all shadow-xs cursor-pointer shrink-0"
             title={isDoctor ? "Back to Doctor Live Queue" : "Back to Live Queue"}
           >
             <ArrowLeft className="w-4 h-4" />
@@ -1001,22 +1081,22 @@ export const DoctorConsultationChatPage = () => {
                 : appointment.doctor_avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'
             }
             alt={isDoctor ? appointment.patient_name : appointment.doctor_name}
-            className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-xs shrink-0"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border-2 border-white shadow-xs shrink-0"
           />
 
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-black text-[#1F1F1F] font-heading">
+              <h1 className="text-base sm:text-xl font-black text-[#1F1F1F] font-heading truncate">
                 {isDoctor ? `Patient: ${appointment.patient_name || 'Patient'}` : appointment.doctor_name}
               </h1>
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Active Chamber • {appointment.room_number || activeDoctor?.room_number || 'Room 101'}</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Chamber • {appointment.room_number || activeDoctor?.room_number || 'Room 101'}</span>
               </span>
             </div>
 
-            <p className="text-xs text-[#6B6E84] mt-0.5 font-medium flex items-center gap-2 flex-wrap">
-              <span>{appointment.hospital || activeDoctor?.hospital || 'HealFlow Medical Center'}</span>
+            <p className="text-[11px] sm:text-xs text-[#6B6E84] mt-0.5 font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="truncate">{appointment.hospital || activeDoctor?.hospital || 'HealFlow Clinic'}</span>
               <span>•</span>
               <span className="font-bold text-[#4C5BBD]">{appointment.specialty}</span>
               {isDoctor && appointment.patient_phone && (
@@ -1029,61 +1109,69 @@ export const DoctorConsultationChatPage = () => {
           </div>
         </div>
 
-        {/* Call Triggers: Doctor ONLY can initiate Audio/Video call. Patient side shows Waiting for Doctor Call badge */}
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          <span className="px-3 py-1.5 text-xs font-black bg-[#F2F5FF] text-[#4C5BBD] rounded-xl border border-slate-200/80 shadow-xs">
+        {/* Call Triggers: Doctor ONLY can initiate Audio/Video call. Patient side shows Waiting for Doctor Call status */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap w-full md:w-auto justify-start md:justify-end">
+          <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-black bg-[#F2F5FF] text-[#4C5BBD] rounded-xl border border-slate-200/80 shadow-xs">
             Token: {appointment.token_number}
           </span>
 
-          <span className="px-3 py-1.5 text-xs font-bold bg-amber-50 text-amber-800 rounded-xl border border-amber-200/80 shadow-xs flex items-center gap-1.5">
+          <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-bold bg-amber-50 text-amber-800 rounded-xl border border-amber-200/80 shadow-xs flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-amber-600" />
-            <span>Max 30 Mins Slot</span>
+            <span>30 Mins Slot</span>
           </span>
 
-          {/* Audio and Video Call Buttons (Available for both Doctor and Patient in active session) */}
-          <button
-            type="button"
-            onClick={() => handleStartCall('audio')}
-            style={{ outline: 'none' }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white text-[#4C5BBD] text-xs font-black transition-all shadow-xs border border-slate-200/80 cursor-pointer"
-          >
-            <PhoneCall className="w-4 h-4" />
-            <span>Audio Call</span>
-          </button>
+          {/* Doctor Exclusive Call Launch Controls */}
+          {isDoctor ? (
+            <>
+              <button
+                type="button"
+                onClick={() => handleStartCall('audio')}
+                style={{ outline: 'none' }}
+                className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white text-[#4C5BBD] text-xs font-black transition-all shadow-xs border border-slate-200/80 cursor-pointer active:scale-95"
+              >
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span>Audio</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => handleStartCall('video')}
-            style={{ outline: 'none' }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
-          >
-            <Video className="w-4 h-4" />
-            <span>Video Call</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => handleStartCall('video')}
+                style={{ outline: 'none' }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer active:scale-95"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>Video Call</span>
+              </button>
 
-          {isDoctor && (
-            <button
-              type="button"
-              onClick={handleCompleteConsultation}
-              style={{ outline: 'none' }}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer"
-              title="Mark consultation complete and admit next patient"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Complete Visit</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleCompleteConsultation}
+                style={{ outline: 'none' }}
+                className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all shadow-xs border-0 cursor-pointer active:scale-95"
+                title="Mark consultation complete and admit next patient"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Complete</span>
+              </button>
+            </>
+          ) : (
+            /* Patient Side: Clean indicator that Doctor controls the call, with instant alert status */
+            <div className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/90 text-[11px] sm:text-xs font-bold shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>Chamber Active • Doctor will call you</span>
+            </div>
           )}
         </div>
       </div>
 
       {/* 2. MAIN 2-COLUMN SECTION: Chat Conversation on Left, Medical Telemetry on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 items-start">
         
         {/* Left 2 Columns: Live Chat Window */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-4 flex flex-col h-[620px]">
+        <div className="lg:col-span-2 bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-3 sm:space-y-4 flex flex-col h-[520px] sm:h-[620px]">
           
           {/* Header */}
-          <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
+          <div className="pb-2.5 sm:pb-3 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
               <h3 className="text-xs font-black uppercase tracking-wider text-[#1F1F1F] font-heading">
@@ -1098,12 +1186,9 @@ export const DoctorConsultationChatPage = () => {
           {/* Messages Feed */}
           <div
             ref={chatScrollContainerRef}
-            className="flex-1 overflow-y-auto space-y-3.5 p-4 rounded-2xl bg-[#F8FAFE] no-scrollbar scroll-smooth"
+            className="flex-1 overflow-y-auto space-y-3 sm:space-y-3.5 p-3 sm:p-4 rounded-2xl bg-[#F8FAFE] no-scrollbar scroll-smooth"
           >
             {messages.map((msg) => {
-              // Exact user alignment rule:
-              // For Doctor: Doctor messages on RIGHT, Patient messages on LEFT
-              // For Patient: Patient messages on RIGHT, Doctor messages on LEFT
               const isMyMessage = msg.senderRole === myRole;
 
               return (
@@ -1112,17 +1197,61 @@ export const DoctorConsultationChatPage = () => {
                   className={`flex flex-col ${isMyMessage ? 'items-end' : 'items-start'}`}
                 >
                   <div
-                    className={`max-w-xs sm:max-w-md p-4 rounded-3xl text-xs space-y-1.5 ${
+                    className={`max-w-[88%] sm:max-w-md p-3 sm:p-4 rounded-2xl sm:rounded-3xl text-xs space-y-1.5 sm:space-y-2 ${
                       isMyMessage
                         ? 'bg-[#4C5BBD] text-white shadow-xs rounded-tr-sm'
                         : 'bg-white text-[#1F1F1F] border border-slate-200/80 shadow-xs rounded-tl-sm'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3 text-[10px] opacity-75 font-bold">
-                      <span>{msg.sender}</span>
+                      <span className="flex items-center gap-1.5">
+                        {msg.imageUrl && (
+                          <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-black uppercase ${
+                            msg.isDoctor ? 'bg-emerald-500/20 text-emerald-300' : 'bg-blue-500/20 text-blue-200'
+                          }`}>
+                            {msg.isDoctor ? 'Rx Prescription' : 'Patient Report'}
+                          </span>
+                        )}
+                        <span>{msg.sender}</span>
+                      </span>
                       <span>{msg.time}</span>
                     </div>
-                    <p className="font-medium leading-relaxed">{msg.text}</p>
+
+                    {/* Image Attachment (Prescription / Medical Report) */}
+                    {msg.imageUrl && (
+                      <div className="relative rounded-2xl overflow-hidden group border border-white/20 bg-black/10">
+                        <img
+                          src={msg.imageUrl}
+                          alt={msg.fileName || 'Prescription attachment'}
+                          className="w-full max-h-60 object-contain cursor-pointer transition-transform duration-200 group-hover:scale-101"
+                          onClick={() => setPreviewModalImage({ url: msg.imageUrl, name: msg.fileName || 'Prescription', sender: msg.sender })}
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewModalImage({ url: msg.imageUrl, name: msg.fileName || 'Prescription', sender: msg.sender })}
+                            className="p-2 rounded-full bg-white text-slate-800 hover:bg-slate-100 shadow-md cursor-pointer transition-transform active:scale-95 flex items-center gap-1 text-[11px] font-bold"
+                            title="View Full Size"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View</span>
+                          </button>
+                          <a
+                            href={msg.imageUrl}
+                            download={msg.fileName || `prescription-${Date.now()}.jpg`}
+                            className="p-2 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 shadow-md cursor-pointer transition-transform active:scale-95 flex items-center gap-1 text-[11px] font-bold"
+                            title="Download Report"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Download</span>
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {msg.text && (
+                      <p className="font-medium leading-relaxed break-words">{msg.text}</p>
+                    )}
                   </div>
                 </div>
               );
@@ -1130,27 +1259,27 @@ export const DoctorConsultationChatPage = () => {
           </div>
 
           {/* Suggested Quick Reply Chips */}
-          <div className="flex items-center gap-2 pt-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 sm:gap-2 pt-1 overflow-x-auto no-scrollbar">
             {isDoctor ? (
               <>
                 <button
                   type="button"
                   onClick={() => setInputMessage(`Hello ${appointment.patient_name || 'Patient'}, please describe your symptoms in detail.`)}
-                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-3 py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
+                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
                 >
                   + Describe Symptoms
                 </button>
                 <button
                   type="button"
                   onClick={() => setInputMessage(`I am reviewing your clinical file. Let's do a quick video call.`)}
-                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-3 py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
+                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
                 >
                   + Start Video Call
                 </button>
                 <button
                   type="button"
                   onClick={() => setInputMessage(`Are you currently taking any medications or have allergies?`)}
-                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-3 py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
+                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
                 >
                   + Medication Check
                 </button>
@@ -1160,44 +1289,84 @@ export const DoctorConsultationChatPage = () => {
                 <button
                   type="button"
                   onClick={() => setInputMessage(`Hello Doctor, I have arrived outside ${appointment.room_number || 'Room 101'}.`)}
-                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-3 py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
+                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
                 >
                   + Arrived Outside Room
                 </button>
                 <button
                   type="button"
-                  onClick={() => setInputMessage(`Doctor, can I start our video consultation now?`)}
-                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-3 py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
+                  onClick={() => setInputMessage(`Doctor, I am ready in the chamber for your call.`)}
+                  className="text-[10px] font-bold text-[#4C5BBD] bg-[#F2F5FF] hover:bg-[#4C5BBD] hover:text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-slate-200/80 transition-colors shrink-0 cursor-pointer"
                 >
-                  + Start Consultation Call
+                  + Ready in Chamber
                 </button>
               </>
             )}
           </div>
 
+          {/* Selected File / Prescription Image Preview Chip before sending */}
+          {selectedImageAttachment && (
+            <div className="flex items-center justify-between p-2.5 rounded-2xl bg-[#EEF2FF] border border-[#4C5BBD]/30 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <img
+                  src={selectedImageAttachment.dataUrl}
+                  alt="Attachment Preview"
+                  className="w-10 h-10 rounded-xl object-cover border border-white shadow-xs shrink-0"
+                />
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black uppercase text-[#4C5BBD] tracking-wider block">
+                    {isDoctor ? 'Rx Prescription Image Ready' : 'Medical Report Image Ready'}
+                  </span>
+                  <p className="text-xs font-bold text-[#1F1F1F] truncate">
+                    {selectedImageAttachment.name}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedImageAttachment(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-white transition-colors cursor-pointer border-0"
+                title="Remove file"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Text Message & File/Prescription Attachment Bar */}
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2">
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-1 sm:pt-2">
             <label
               htmlFor="chat-file-upload"
-              className="p-3 rounded-full bg-[#F8FAFE] hover:bg-[#F2F5FF] text-[#4C5BBD] border border-slate-200/90 shadow-2xs cursor-pointer transition-all shrink-0"
-              title="Attach Prescription or Clinical Photo"
+              className="p-2.5 sm:p-3 rounded-full bg-[#F8FAFE] hover:bg-[#F2F5FF] text-[#4C5BBD] border border-slate-200/90 shadow-2xs cursor-pointer transition-all shrink-0 active:scale-95"
+              title={isDoctor ? 'Attach Prescription (Rx Image)' : 'Attach Medical Report / Prescription'}
             >
               <Paperclip className="w-4 h-4" />
               <input
                 id="chat-file-upload"
                 type="file"
-                accept="image/*,application/pdf"
+                accept="image/*"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
+                    if (file.size > 15 * 1024 * 1024) {
+                      showToast('File size must be under 15MB', 'warning');
+                      return;
+                    }
                     const reader = new FileReader();
-                    reader.onload = () => {
-                      setInputMessage(`[Shared Document: ${file.name}] `);
+                    reader.onload = (event) => {
+                      const dataUrl = event.target.result;
+                      setSelectedImageAttachment({
+                        dataUrl,
+                        name: file.name,
+                        size: file.size,
+                      });
+                      showToast(`Selected ${file.name} - tap Send to upload`, 'info');
                     };
                     reader.readAsDataURL(file);
-                    showToast(`Attached ${file.name}`, 'info');
                   }
+                  e.target.value = '';
                 }}
               />
             </label>
@@ -1207,19 +1376,22 @@ export const DoctorConsultationChatPage = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               placeholder={
-                isDoctor
-                  ? `Message patient ${appointment.patient_name || 'Patient'}...`
-                  : `Message Dr. ${appointment.doctor_name} (share symptoms or prescription)...`
+                selectedImageAttachment
+                  ? 'Add a note (e.g. Rx instructions or test findings)...'
+                  : isDoctor
+                  ? `Message patient or attach Rx...`
+                  : `Message Dr. ${appointment.doctor_name} or attach report...`
               }
               style={{ outline: 'none' }}
-              className="flex-1 bg-[#F8FAFE] border border-slate-200/90 rounded-full px-5 py-3 text-xs text-[#1F1F1F] font-semibold shadow-xs focus:bg-white transition-all"
+              className="flex-1 bg-[#F8FAFE] border border-slate-200/90 rounded-full px-4 sm:px-5 py-2.5 sm:py-3 text-xs text-[#1F1F1F] font-semibold shadow-xs focus:bg-white transition-all"
             />
 
             <button
               type="submit"
-              disabled={isSending || !inputMessage.trim()}
+              disabled={isSending || (!inputMessage.trim() && !selectedImageAttachment)}
               style={{ outline: 'none' }}
-              className="p-3.5 rounded-full bg-[#4C5BBD] text-white hover:bg-[#3B489E] transition-all border-0 shadow-xs shrink-0 cursor-pointer disabled:opacity-40"
+              className="p-3 sm:p-3.5 rounded-full bg-[#4C5BBD] text-white hover:bg-[#3B489E] transition-all border-0 shadow-xs shrink-0 cursor-pointer disabled:opacity-40 active:scale-95 flex items-center justify-center"
+              title="Send Message"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -1602,23 +1774,23 @@ export const DoctorConsultationChatPage = () => {
           </div>
         ) : (
           /* Full Screen Video Call */
-          <div className="fixed inset-0 z-[999999] bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-[#161B33] text-white rounded-3xl p-6 shadow-2xl border border-white/10 w-full max-w-3xl space-y-4 font-sans animate-fade-in relative overflow-hidden">
+          <div className="fixed inset-0 z-[999999] bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div className="bg-[#161B33] text-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-2xl border border-white/10 w-full max-w-3xl space-y-3 sm:space-y-4 font-sans animate-fade-in relative overflow-hidden">
               
               {/* Header */}
               <div className="flex items-center justify-between pb-2 border-b border-white/10">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="text-xs font-black uppercase text-white tracking-wider">
-                    HD Telemedicine Video Chamber
+                  <span className="text-[11px] sm:text-xs font-black uppercase text-white tracking-wider">
+                    Telemedicine Chamber
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => setIsCallMinimized(true)}
-                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 px-3 cursor-pointer"
+                    className="p-1 sm:p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] sm:text-xs font-bold flex items-center gap-1.5 px-2.5 sm:px-3 cursor-pointer"
                     title="Chat simultaneously while on video call"
                   >
                     <Minimize2 className="w-3.5 h-3.5" />
@@ -1629,7 +1801,7 @@ export const DoctorConsultationChatPage = () => {
               </div>
 
               {/* Video Screen Viewport */}
-              <div className="relative w-full h-88 rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center border border-white/10">
+              <div className="relative w-full h-64 sm:h-88 md:h-96 rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center border border-white/10">
                 {/* Active Remote Live Video Stream */}
                 {remoteStream ? (
                   <video
@@ -1639,21 +1811,21 @@ export const DoctorConsultationChatPage = () => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="text-center space-y-3 p-6 animate-pulse">
-                    <div className="w-20 h-20 rounded-full bg-slate-800/90 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
-                      <Camera className="w-10 h-10 animate-bounce" />
+                  <div className="text-center space-y-3 p-4 sm:p-6 animate-pulse">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-800/90 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+                      <Camera className="w-8 h-8 sm:w-10 sm:h-10 animate-bounce" />
                     </div>
-                    <p className="text-sm font-bold text-white">
+                    <p className="text-xs sm:text-sm font-bold text-white">
                       Connecting live camera with {isDoctor ? appointment.patient_name || 'Patient' : appointment.doctor_name}...
                     </p>
-                    <p className="text-xs text-emerald-400 font-mono">
+                    <p className="text-[11px] sm:text-xs text-emerald-400 font-mono">
                       Establishing encrypted P2P telemedicine stream
                     </p>
                   </div>
                 )}
 
                 {/* Self PIP Viewfinder in Bottom Right */}
-                <div className="absolute bottom-4 right-4 w-36 h-28 rounded-2xl border-2 border-white/80 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
+                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 w-24 h-32 sm:w-36 sm:h-28 rounded-xl sm:rounded-2xl border-2 border-white/80 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
                   {!isVideoOff ? (
                     <video
                       ref={localVideoRef}
@@ -1671,19 +1843,19 @@ export const DoctorConsultationChatPage = () => {
                 </div>
 
                 {/* Overlaid Info Badge */}
-                <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-2 border border-white/10">
+                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 bg-black/60 backdrop-blur-md px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold text-white flex items-center gap-1.5 sm:gap-2 border border-white/10">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>{isDoctor ? appointment.patient_name || 'Patient' : appointment.doctor_name}</span>
+                  <span className="truncate max-w-[140px] sm:max-w-none">{isDoctor ? appointment.patient_name || 'Patient' : appointment.doctor_name}</span>
                 </div>
               </div>
 
               {/* Call Controls Bar */}
-              <div className="flex items-center justify-center gap-6 pt-2">
+              <div className="flex items-center justify-center gap-4 sm:gap-6 pt-1 sm:pt-2">
                 <button
                   type="button"
                   onClick={handleToggleMute}
                   style={{ outline: 'none' }}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center text-white transition-all cursor-pointer ${
+                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white transition-all cursor-pointer ${
                     isMuted ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'
                   }`}
                   title={isMuted ? 'Unmute Mic' : 'Mute Mic'}
@@ -1695,7 +1867,7 @@ export const DoctorConsultationChatPage = () => {
                   type="button"
                   onClick={handleToggleVideo}
                   style={{ outline: 'none' }}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center text-white transition-all cursor-pointer ${
+                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white transition-all cursor-pointer ${
                     isVideoOff ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'
                   }`}
                   title={isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
@@ -1707,7 +1879,7 @@ export const DoctorConsultationChatPage = () => {
                   type="button"
                   onClick={handleEndCall}
                   style={{ outline: 'none' }}
-                  className="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg transition-all cursor-pointer"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg transition-all cursor-pointer active:scale-95"
                   title="End Video Call"
                 >
                   <PhoneOff className="w-6 h-6" />
@@ -1717,6 +1889,63 @@ export const DoctorConsultationChatPage = () => {
             </div>
           </div>
         ),
+        document.body
+      )}
+
+      {/* 5. FULL PREVIEW MODAL FOR PRESCRIPTIONS / REPORTS */}
+      {previewModalImage && createPortal(
+        <div
+          onClick={() => setPreviewModalImage(null)}
+          className="fixed inset-0 z-[9999999] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 font-sans animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-[#F8FAFE]">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#4C5BBD] flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-[#1F1F1F] truncate">
+                    {previewModalImage.name || 'Prescription / Medical Report'}
+                  </h3>
+                  <p className="text-[11px] text-[#6B6E84]">Shared by {previewModalImage.sender || 'Participant'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewModalImage.url}
+                  download={previewModalImage.name || 'document.jpg'}
+                  className="px-3.5 py-1.5 rounded-full bg-[#4C5BBD] hover:bg-[#3B489E] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setPreviewModalImage(null)}
+                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer border-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Image Body */}
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-950/5">
+              <img
+                src={previewModalImage.url}
+                alt="Document Full View"
+                className="max-h-[75vh] w-auto max-w-full rounded-xl object-contain shadow-md"
+              />
+            </div>
+          </div>
+        </div>,
         document.body
       )}
 

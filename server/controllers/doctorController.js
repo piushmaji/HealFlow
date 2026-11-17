@@ -373,11 +373,13 @@ export const getConsultationMessages = async (req, res, next) => {
 export const sendConsultationMessage = async (req, res, next) => {
   try {
     const { appointmentId } = req.params;
-    const { sender, content, sender_email, sender_role } = req.body;
+    const { sender, content, sender_email, sender_role, image_url, file_name, file_type } = req.body;
 
-    if (!content || !content.trim()) {
-      return res.status(400).json({ success: false, message: 'Message content required' });
+    if (!content && !image_url) {
+      return res.status(400).json({ success: false, message: 'Message content or image attachment required' });
     }
+
+    const messageText = (content || '').trim() || (image_url ? (sender_role === 'doctor' ? '[Prescription / Clinical Rx Image]' : '[Medical Report / Prescription Image]') : '');
 
     // 1. Ensure chat session exists for this appointment
     const { data: existingSessions } = await supabase
@@ -401,19 +403,28 @@ export const sendConsultationMessage = async (req, res, next) => {
     }
 
     // 2. Insert chat message into chat_messages
+    const msgMetadata = {
+      appointment_id: appointmentId,
+      sender_name: sender,
+      sender_email: sender_email || '',
+      sender_role: sender_role || 'patient',
+      created_at: new Date().toISOString(),
+    };
+
+    if (image_url) {
+      msgMetadata.type = 'image';
+      msgMetadata.image_url = image_url;
+      msgMetadata.file_name = file_name || 'prescription.jpg';
+      msgMetadata.file_type = file_type || 'image/jpeg';
+    }
+
     const { data: newMsg, error: msgErr } = await supabase
       .from('chat_messages')
       .insert({
         session_id: sessionId,
         sender: sender_role === 'doctor' ? 'system' : 'user', // DB constraint check ('user', 'ai', 'system')
-        content: content.trim(),
-        metadata: {
-          appointment_id: appointmentId,
-          sender_name: sender,
-          sender_email: sender_email || '',
-          sender_role: sender_role || 'patient',
-          created_at: new Date().toISOString(),
-        },
+        content: messageText,
+        metadata: msgMetadata,
       })
       .select();
 

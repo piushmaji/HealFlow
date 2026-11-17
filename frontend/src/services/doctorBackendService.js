@@ -25,7 +25,7 @@ const getBackendBase = () => {
         return envUrl.replace('/api/chat', '/api/doctors');
       }
       // Return Render backend URL default if on HTTPS Vercel
-      return 'https://healflow.onrender.com/api/doctors';
+      return 'https://healflow-backend.onrender.com/api/doctors';
     }
 
     if (!isLocalhost && !isHttps) {

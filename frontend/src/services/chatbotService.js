@@ -21,7 +21,7 @@ const getChatbotBase = () => {
       if (envUrl && envUrl.startsWith('https://')) {
         return envUrl;
       }
-      return 'https://healflow.onrender.com/api/chat';
+      return 'https://healflow-backend.onrender.com/api/chat';
     }
 
     if (!isLocalhost && !isHttps) {

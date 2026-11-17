@@ -169,23 +169,9 @@ export const AIChatbotComponent = () => {
     try {
       const botResponse = await sendChatbotMessage(queryText);
       const mainText = botResponse?.message || 'I have evaluated your symptoms. Below is your clinical guidance:';
-      const specialty = botResponse?.specialty || null;
+      const specialty = botResponse?.suggested_specialty || botResponse?.specialty || null;
+      const specialtyReason = botResponse?.specialty_reason || (specialty ? `A verified specialist in ${specialty} will evaluate your symptoms.` : '');
       const doctors = botResponse?.doctors || [];
-
-      let specialtyReason = '';
-      if (specialty === 'Cardiology') {
-        specialtyReason = 'Cardiologists evaluate cardiac arrhythmias, chest tightness, palpitations, and hypertension management.';
-      } else if (specialty === 'Dermatology') {
-        specialtyReason = 'Dermatologists diagnose cutaneous rashes, dermatitis, allergic urticaria, and skin lesions.';
-      } else if (specialty === 'Orthopedics') {
-        specialtyReason = 'Orthopedic specialists treat musculoskeletal injuries, acute fractures, spinal discomfort, and joint arthritis.';
-      } else if (specialty === 'Pediatrics') {
-        specialtyReason = 'Pediatric specialists treat infant and child wellness, infectious fevers, and developmental milestones.';
-      } else if (specialty === 'Neurology') {
-        specialtyReason = 'Neurologists treat migraine disorders, nerve compression, syncope, and neurological dysfunctions.';
-      } else {
-        specialtyReason = 'A General Physician will evaluate your primary symptoms, perform baseline diagnostic tests, and direct clinical referrals.';
-      }
 
       const aiMsg = {
         id: `ai-${Date.now()}`,
@@ -193,7 +179,10 @@ export const AIChatbotComponent = () => {
         text: mainText,
         suggestedSpecialty: specialty,
         specialtyReason,
-        showDoctors: doctors.length > 0,
+        emergency: botResponse?.emergency || false,
+        emergencyMessage: botResponse?.emergency_message || null,
+        emergencyContact: botResponse?.emergency_contact || null,
+        showDoctors: botResponse?.show_doctors !== false && doctors.length > 0,
         doctors: doctors.slice(0, 4),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -391,16 +380,43 @@ export const AIChatbotComponent = () => {
               ) : (
                 /* AI Clinical Response Card */
                 <div className="space-y-3 max-w-[95%] sm:max-w-[88%]">
-                  <div className="bg-white rounded-3xl p-5 sm:p-6 text-[#1F1F1F] shadow-sm space-y-2.5">
-                    <div className="flex items-center gap-2 text-[#4C5BBD] font-black text-xs font-heading">
-                      <Sparkles className="w-4 h-4" />
-                      <span>HealFlow Medical Intelligence</span>
+                  {/* Emergency Warning Banner if detected */}
+                  {msg.emergency && (
+                    <div className="bg-rose-50 border-2 border-rose-500 rounded-3xl p-4 sm:p-5 text-rose-900 shadow-sm space-y-2 animate-pulse">
+                      <div className="flex items-center gap-2 font-black text-rose-700 text-sm">
+                        <Zap className="w-5 h-5 text-rose-600" />
+                        <span>EMERGENCY CLINICAL ALERT</span>
+                      </div>
+                      <p className="text-xs font-bold leading-relaxed">{msg.text}</p>
+                      {msg.emergencyMessage && (
+                        <p className="text-[11px] text-rose-800 whitespace-pre-line bg-rose-100/70 p-2.5 rounded-xl font-medium">
+                          {msg.emergencyMessage}
+                        </p>
+                      )}
+                      <div className="pt-1">
+                        <a
+                          href="tel:112"
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-xs transition-all no-underline"
+                        >
+                          <span>Call 112 (Emergency Hotline)</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
                     </div>
+                  )}
 
-                    <p className="whitespace-pre-line text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
-                      {msg.text}
-                    </p>
-                  </div>
+                  {!msg.emergency && (
+                    <div className="bg-white rounded-3xl p-5 sm:p-6 text-[#1F1F1F] shadow-sm space-y-2.5">
+                      <div className="flex items-center gap-2 text-[#4C5BBD] font-black text-xs font-heading">
+                        <Sparkles className="w-4 h-4" />
+                        <span>HealFlow Medical Intelligence</span>
+                      </div>
+
+                      <p className="whitespace-pre-line text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                        {msg.text}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Recommended Specialty Card */}
                   {msg.suggestedSpecialty && (

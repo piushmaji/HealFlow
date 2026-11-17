@@ -5,6 +5,7 @@ import { useQueue } from '../../context/QueueContext';
 import { ToastContainer } from '../common/Toast';
 import { ChatbotWidget } from '../chatbot/ChatbotWidget';
 import { ConfirmActionModal } from '../ui/ConfirmActionModal';
+import { IncomingConsultationNotification } from '../../features/dashboard/IncomingConsultationNotification';
 import { HealFlowLogo } from '../common/HealFlowLogo';
 import { HealFlowIcon } from '../common/HealFlowIcon';
 import {
@@ -65,7 +66,6 @@ export const DashboardLayout = () => {
         { name: 'Doctor Control Room', path: '/doctor-dashboard', icon: LayoutDashboard },
         { name: 'Patient Queue Telemetry', path: '/live-queue', icon: Clock, badge: 'Live' },
         { name: 'Doctor Directory', path: '/doctors', icon: Stethoscope },
-        { name: 'AI Medical Guide', path: '/ai-assistant', icon: Sparkles, badge: 'AI' },
         { name: 'My Profile', path: '/doctor/profile', icon: User },
       ]
     : [
@@ -387,6 +387,7 @@ export const DashboardLayout = () => {
           </div>
         </main>
         
+        <IncomingConsultationNotification />
         <ChatbotWidget />
         <ToastContainer />
 

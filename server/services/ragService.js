@@ -1,6 +1,7 @@
 /**
  * Full RAG Orchestration Service
- * Integrates Safety Checks, Vector Retrieval, Gemini Generation, and Real Doctor Matching.
+ * Integrates Safety Checks, Vector/Knowledge Retrieval, Grounded Clinical Explanations, and Real Doctor Matching.
+ * Provides thorough, empathetic medical context and explanation grounded in verified knowledge chunks.
  */
 import { genAI, GEMINI_CHAT_MODEL } from '../config/gemini.js';
 import { assessEmergency } from './safetyService.js';
@@ -8,15 +9,17 @@ import { retrieveRelevantContext } from './retrievalService.js';
 import { getMatchingDoctors } from './doctorMatchingService.js';
 import { detectLanguage } from '../utils/languageDetector.js';
 import { buildRAGPrompt } from '../utils/promptBuilder.js';
+import { supabase } from '../config/supabase.js';
 
-// Regex patterns for conversational greetings, gratitude, and small talk
+// Regex patterns for conversational greetings, gratitude, small talk, and bot capability queries
 const GREETING_PATTERNS = [
-  /^(hi|hello|hey|hiya|howdy|hola|yo)(\s+there|\s+bot|\s+doc|\s+doctor|\s+healflow)?[\s!.,?]*$/i,
+  /^(hi+|hello+|hey+|heyy+|hiya|howdy|hola|yo+)(\s+(there|bot|doc|doctor|healflow|sir|bhai|mam|team))?[\s!.,?]*$/i,
   /^(namaste|namaskar|pranam|ram\s*ram|salaam|sasrikal)[\s!.,?]*$/i,
   /^(good\s+(morning|afternoon|evening|night|day))[\s!.,?]*$/i,
   /^(kaise\s+ho|kaisa\s+hai|kya\s+haal\s+hai|sab\s+theek|aap\s+kaise\s+hain)[\s!.,?]*$/i,
   /^(how\s+are\s+you|how\s+do\s+you\s+do|how\'s\s+it\s+going|what\'s\s+up|sup)[\s!.,?]*$/i,
-  /^(who\s+are\s+you|what\s+can\s+you\s+do|help\s*me|tell\s+me\s+about\s+yourself)[\s!.,?]*$/i,
+  /^(who\s+are\s+you|what\s+can\s+you\s+do|what\s+do\s+you\s+do|help\s*me|tell\s+me\s+about\s+yourself|who\s+are\s+you\s+and\s+what\s+do\s+you\s+do)[\s!.,?]*$/i,
+  /^(kya\s+karte\s+ho|tum\s+kaun\s+ho|aap\s+kaun\s+hain|ye\s+kya\s+hai|kya\s+kaam\s+hai)[\s!.,?]*$/i,
   /^(thanks|thank\s+you|dhanyawad|shukriya|thx|ty)[\s!.,?]*$/i,
   /^(bye|goodbye|see\s+you|alvida|tata)[\s!.,?]*$/i,
   /^(ok|okay|theek\s+hai|thik\s+h|accha|acha)[\s!.,?]*$/i,
@@ -31,7 +34,8 @@ export const isCasualGreeting = (text) => {
 export const getGreetingResponse = (lang) => {
   if (lang === 'hi') {
     return {
-      message: 'नमस्ते! मैं आपका हीलफ्लो एआई स्पेशलिस्ट गाइड हूँ। आज मैं आपके स्वास्थ्य से जुड़ी क्या सहायता कर सकता हूँ? आप अपनी परेशानी या लक्षण साझा कर सकते हैं।',
+      message:
+        'नमस्ते! मैं आपका हीलफ्लो एआई स्पेशलिस्ट गाइड हूँ।\n\nमैं आपके स्वास्थ्य लक्षणों को समझने, उनके संभावित कारणों की मेडिकल जानकारी साझा करने और सही विशेषज्ञ डॉक्टर (Cardiology, Dermatology, Pediatrics, Neurology, Orthopedics, General Medicine) से कनेक्ट करने में सहायता करता हूँ।\n\nआज आप कैसा महसूस कर रहे हैं? कृपया अपने लक्षण या स्वास्थ्य चिंता विस्तार से साझा करें।',
       language: 'hi',
       suggested_specialty: null,
       specialty_reason: null,
@@ -45,7 +49,8 @@ export const getGreetingResponse = (lang) => {
 
   if (lang === 'hinglish') {
     return {
-      message: 'Hello! Main aapka Healflow AI Specialist Guide hoon. Aaj main aapki health se judi kya madad kar sakta hoon? Aap apne symptoms ya queries mere saath share kar sakte hain.',
+      message:
+        'Hello! Main aapka HealFlow AI Specialist Guide hoon.\n\nMain aapke health symptoms ko samajhne, verified clinical knowledge ke mutabik context samjhane aur sahi specialist doctor (Cardiology, Dermatology, Pediatrics, Neurology, Orthopedics, General Medicine) suggest karne mein help karta hoon.\n\nAap aaj kaisa feel kar rahe hain? Kripya apne symptoms ya health query share karein.',
       language: 'hinglish',
       suggested_specialty: null,
       specialty_reason: null,
@@ -58,7 +63,8 @@ export const getGreetingResponse = (lang) => {
   }
 
   return {
-    message: 'Hello! I am your Healflow AI Specialist Guide. How can I assist you with your health today? Feel free to describe any symptoms or ask about our medical specialties.',
+    message:
+      'Hello! I am your HealFlow AI Specialist Guide.\n\nI help you understand your symptoms, provide evidence-based educational health context, and guide you to the right medical specialist (Cardiology, Dermatology, Pediatrics, Neurology, Orthopedics, General Medicine).\n\nHow are you feeling today? Please describe your symptoms or ask your health concern.',
     language: 'en',
     suggested_specialty: null,
     specialty_reason: null,
@@ -68,6 +74,73 @@ export const getGreetingResponse = (lang) => {
     show_doctors: false,
     doctors: [],
   };
+};
+
+/**
+ * Builds a thorough, empathetic clinical response grounded in verified knowledge chunks.
+ * Formats clearly: Clinical Understanding, Clinical Context, Escalation Note, Recommended Specialty, and Verified Doctors.
+ */
+const buildGroundedClinicalResponse = ({
+  query,
+  lang,
+  suggestedSpecialty,
+  symptomChunk,
+  knowledgeChunk,
+}) => {
+  const isHi = lang === 'hi';
+  const isHinglish = lang === 'hinglish';
+
+  const symMeta = symptomChunk?.metadata || {};
+  const knwMeta = knowledgeChunk?.metadata || {};
+
+  const symptomName = isHi
+    ? symMeta.symptom_hi || symMeta.symptom_en || 'लक्षण'
+    : isHinglish
+    ? symMeta.symptom_hinglish || symMeta.symptom_en || 'symptoms'
+    : symMeta.symptom_en || 'reported symptoms';
+
+  const mappingNote = symMeta.mapping_note || '';
+
+  let clinicalContext = '';
+  if (isHi && knwMeta.content_hi) clinicalContext = knwMeta.content_hi;
+  else if (isHinglish && knwMeta.content_hinglish) clinicalContext = knwMeta.content_hinglish;
+  else if (knwMeta.content_en) clinicalContext = knwMeta.content_en;
+
+  let escalation = '';
+  if (knwMeta.safety_or_escalation_note) {
+    escalation = knwMeta.safety_or_escalation_note;
+  }
+
+  if (isHi) {
+    return [
+      `### 🩺 क्लिनिकल समझ (${symptomName})`,
+      `${mappingNote ? mappingNote + ' ' : ''}${clinicalContext}`,
+      escalation ? `> ⚠️ **महत्वपूर्ण सूचना**: ${escalation}` : '',
+      `### 👨‍⚕️ अनुशंसित विशेषज्ञ: ${suggestedSpecialty}`,
+      `आपके बताए गए लक्षणों के सटीक मूल्यांकन, शारीरिक परीक्षण एवं सही उपचार के लिए **${suggestedSpecialty}** विशेषज्ञ से परामर्श की सलाह दी जाती है। केवल लक्षणों के आधार पर खुद दवा लेना सुरक्षित नहीं है; एक योग्य डॉक्टर जांच द्वारा सही उपचार तय करते हैं।`,
+      `--- \n**उपलब्ध सत्यापित (Verified) ${suggestedSpecialty} डॉक्टर्स:**`
+    ].filter(Boolean).join('\n\n');
+  }
+
+  if (isHinglish) {
+    return [
+      `### 🩺 Clinical Understanding (${symptomName})`,
+      `${mappingNote ? mappingNote + ' ' : ''}${clinicalContext}`,
+      escalation ? `> ⚠️ **Important Clinical Note**: ${escalation}` : '',
+      `### 👨‍⚕️ Recommended Specialist: ${suggestedSpecialty}`,
+      `Aapke bataye gaye symptoms ke clinical context ke mutabik, **${suggestedSpecialty}** specialist se consult karna sabse sahi step hai. Sahi diagnosis ke liye proper physical examination aur clinical review zaroori hai—kripya bina doctor ke koi medicine na lein.`,
+      `--- \n**Available Verified ${suggestedSpecialty} Doctors on HealFlow:**`
+    ].filter(Boolean).join('\n\n');
+  }
+
+  return [
+    `### 🩺 Clinical Overview (${symptomName})`,
+    `${mappingNote ? mappingNote + ' ' : ''}${clinicalContext}`,
+    escalation ? `> ⚠️ **Clinical Note**: ${escalation}` : '',
+    `### 👨‍⚕️ Recommended Specialist: ${suggestedSpecialty}`,
+    `Based on clinical guidelines for your described symptoms, a consultation with a **${suggestedSpecialty}** specialist is advised for thorough physical evaluation and evidence-based care. Clinical symptoms alone cannot confirm an underlying diagnosis.`,
+    `--- \n**Verified ${suggestedSpecialty} Specialists Available on HealFlow:**`
+  ].filter(Boolean).join('\n\n');
 };
 
 export const processChatMessage = async (userMessage) => {
@@ -86,8 +159,7 @@ export const processChatMessage = async (userMessage) => {
   // 1. Language Detection
   const lang = detectLanguage(query);
 
-  // 2. CASUAL GREETING & CONVERSATION CHECK:
-  // If the user says "hey", "hello", "kaise ho", "thank you", don't triage as medical condition
+  // 2. CASUAL GREETING & CAPABILITY QUERY CHECK:
   if (isCasualGreeting(query)) {
     return getGreetingResponse(lang);
   }
@@ -95,11 +167,12 @@ export const processChatMessage = async (userMessage) => {
   // 3. CRITICAL SAFETY CHECK: Deterministic Emergency Detection
   const emergencyCheck = assessEmergency(query);
   if (emergencyCheck.isEmergency) {
-    const emergencyMsg = lang === 'hi'
-      ? 'आपातकालीन चेतावनी: आपके लक्षण संभावित रूप से गंभीर हो सकते हैं। कृपया तुरंत 112 (राष्ट्रीय आपातकालीन नंबर) पर कॉल करें या नजदीकी आपातकालीन अस्पताल जाएं।'
-      : lang === 'hinglish'
-      ? 'Emergency Alert: Aapke symptoms serious ho sakte hain. Kripya turant 112 par call karein ya paas ke emergency hospital mein jaayein.'
-      : 'EMERGENCY ALERT: Your described symptoms indicate a potentially critical medical condition. Please immediately call 112 (India National Emergency Number) or proceed to the nearest emergency room.';
+    const emergencyMsg =
+      lang === 'hi'
+        ? 'आपातकालीन चेतावनी: आपके लक्षण संभावित रूप से गंभीर हो सकते हैं। कृपया तुरंत 112 (राष्ट्रीय आपातकालीन नंबर) पर कॉल करें या नजदीकी आपातकालीन अस्पताल जाएं।'
+        : lang === 'hinglish'
+        ? 'Emergency Alert: Aapke symptoms serious ho sakte hain. Kripya turant 112 par call karein ya paas ke emergency hospital mein jaayein.'
+        : 'EMERGENCY ALERT: Your described symptoms indicate a potentially critical medical condition. Please immediately call 112 (India National Emergency Number) or proceed to the nearest emergency room.';
 
     return {
       message: emergencyMsg,
@@ -114,27 +187,104 @@ export const processChatMessage = async (userMessage) => {
     };
   }
 
-  // 4. RETRIEVAL: Query Supabase pgvector for top knowledge chunks
+  // 4. RETRIEVAL: Query Supabase Hybrid RAG (pgvector + verified knowledge chunks)
   let retrievedChunks = [];
   try {
-    retrievedChunks = await retrieveRelevantContext(query, { matchCount: 4, threshold: 0.35 });
+    retrievedChunks = await retrieveRelevantContext(query, { matchCount: 5, threshold: 0.35 });
   } catch (e) {
     console.warn('[RAG Service] Retrieval notice:', e.message);
   }
 
-  // 5. GEMINI GENERATION
+  // Separate symptom chunk and broader medical educational chunk
+  const symptomChunk = retrievedChunks.find(
+    (c) => c.metadata?.suggested_specialty && c.metadata.suggested_specialty !== 'UNSUPPORTED'
+  );
+  let knowledgeChunk = retrievedChunks.find(
+    (c) => c.dataset_name === 'medical_knowledge' && (c.metadata?.content_en || c.metadata?.content_hi || c.metadata?.content_hinglish)
+  );
+
+  let ragSuggestedSpecialty =
+    symptomChunk?.metadata?.suggested_specialty ||
+    knowledgeChunk?.metadata?.related_specialty ||
+    null;
+
+  // Fallback specialty determination if retrieval had low direct score
+  const lowerQ = query.toLowerCase();
+  const isChildQuery = lowerQ.includes('child') || lowerQ.includes('baby') || lowerQ.includes('bachha') || lowerQ.includes('baccha') || lowerQ.includes('pediatric') || lowerQ.includes('infant');
+
+  if (!ragSuggestedSpecialty || (ragSuggestedSpecialty === 'Pediatrics' && !isChildQuery)) {
+    if (lowerQ.includes('pet') || lowerQ.includes('stomach') || lowerQ.includes('abdomen') || lowerQ.includes('digestive') || lowerQ.includes('vomit') || lowerQ.includes('ulti') || lowerQ.includes('nausea') || lowerQ.includes('gas') || lowerQ.includes('acidity') || lowerQ.includes('khasi') || lowerQ.includes('khansi') || lowerQ.includes('cough') || lowerQ.includes('cold') || lowerQ.includes('sardi') || lowerQ.includes('fever') || lowerQ.includes('bukhar')) {
+      ragSuggestedSpecialty = isChildQuery ? 'Pediatrics' : 'General Medicine';
+    } else if (lowerQ.includes('bone') || lowerQ.includes('joint') || lowerQ.includes('knee') || lowerQ.includes('fracture') || lowerQ.includes('back pain') || lowerQ.includes('neck pain') || lowerQ.includes('ligament')) {
+      ragSuggestedSpecialty = 'Orthopedics';
+    } else if (lowerQ.includes('skin') || lowerQ.includes('rash') || lowerQ.includes('acne') || lowerQ.includes('itching') || lowerQ.includes('khujli') || lowerQ.includes('eczema')) {
+      ragSuggestedSpecialty = 'Dermatology';
+    } else if (lowerQ.includes('headache') || lowerQ.includes('nerve') || lowerQ.includes('migraine') || lowerQ.includes('chakkar') || lowerQ.includes('dizziness') || lowerQ.includes('sar dard') || lowerQ.includes('sir dard') || lowerQ.includes('sir me dard')) {
+      ragSuggestedSpecialty = 'Neurology';
+    } else if (lowerQ.includes('heart') || lowerQ.includes('chest') || lowerQ.includes('bp') || lowerQ.includes('palpitation') || lowerQ.includes('seene')) {
+      ragSuggestedSpecialty = 'Cardiology';
+    } else if (isChildQuery) {
+      ragSuggestedSpecialty = 'Pediatrics';
+    } else {
+      ragSuggestedSpecialty = 'General Medicine';
+    }
+  }
+
+  // Ensure matching specific medical knowledge chunk for educational explanation
+  if (!knowledgeChunk || knowledgeChunk.metadata?.related_specialty !== ragSuggestedSpecialty) {
+    try {
+      // Look for symptom-specific topic first (e.g. headache, fever, chest pain, stomach)
+      let topicSearch = ragSuggestedSpecialty;
+      if (lowerQ.includes('headache') || lowerQ.includes('migraine') || lowerQ.includes('sir') || lowerQ.includes('sar')) {
+        topicSearch = 'Headache';
+      } else if (lowerQ.includes('chest') || lowerQ.includes('seene') || lowerQ.includes('heart')) {
+        topicSearch = 'Chest pain';
+      } else if (lowerQ.includes('fever') || lowerQ.includes('bukhar')) {
+        topicSearch = lowerQ.includes('child') || lowerQ.includes('baby') || lowerQ.includes('baccha') ? 'Child fever' : 'Fever';
+      } else if (lowerQ.includes('pet') || lowerQ.includes('stomach') || lowerQ.includes('abdomen')) {
+        topicSearch = 'Stomach pain';
+      }
+
+      const { data: specificChunks } = await supabase
+        .from('knowledge_chunks')
+        .select('id, dataset_name, content, metadata')
+        .eq('dataset_name', 'medical_knowledge')
+        .ilike('metadata->>topic', `%${topicSearch}%`)
+        .limit(1);
+
+      if (specificChunks && specificChunks.length > 0) {
+        knowledgeChunk = specificChunks[0];
+      } else {
+        const { data: scopeChunks } = await supabase
+          .from('knowledge_chunks')
+          .select('id, dataset_name, content, metadata')
+          .eq('dataset_name', 'medical_knowledge')
+          .ilike('metadata->>topic', `%${ragSuggestedSpecialty}%`)
+          .limit(1);
+
+        if (scopeChunks && scopeChunks.length > 0) {
+          knowledgeChunk = scopeChunks[0];
+        }
+      }
+    } catch (err) {
+      console.warn('[RAG Service] Scope chunk lookup notice:', err.message);
+    }
+  }
+
+  // 5. GEMINI GENERATION (With automatic fall-forward to grounded clinical chunk engine)
   const prompt = buildRAGPrompt({ query, retrievedChunks, language: lang });
 
   let structuredResponse = {
-    message: 'Based on your symptoms, a medical consultation is advised.',
+    message: '',
     language: lang,
-    suggested_specialty: null,
-    specialty_reason: null,
+    suggested_specialty: ragSuggestedSpecialty,
+    specialty_reason: symptomChunk?.metadata?.mapping_note || `Clinical guidelines recommend consulting a ${ragSuggestedSpecialty} specialist for this concern.`,
     emergency: false,
     emergency_message: null,
-    show_doctors: false,
+    show_doctors: true,
   };
 
+  let geminiSuccess = false;
   try {
     const model = genAI.getGenerativeModel({
       model: GEMINI_CHAT_MODEL,
@@ -148,48 +298,36 @@ export const processChatMessage = async (userMessage) => {
     const responseText = result.response.text();
     const parsed = JSON.parse(responseText);
 
-    structuredResponse = {
-      ...structuredResponse,
-      ...parsed,
-    };
+    if (parsed.message && parsed.message.length > 30) {
+      structuredResponse = {
+        ...structuredResponse,
+        ...parsed,
+      };
+      geminiSuccess = true;
+    }
   } catch (err) {
-    console.warn('[RAG Service] Gemini Generation fallback:', err.message);
-    // Intelligent heuristic fallback if Gemini API key is missing or quota exceeded
-    const lowerQ = query.toLowerCase();
-    if (lowerQ.includes('heart') || lowerQ.includes('chest') || lowerQ.includes('bp')) {
-      structuredResponse.suggested_specialty = 'Cardiology';
-      structuredResponse.specialty_reason = 'Cardiologists specialize in cardiovascular health, blood pressure, and heart telemetry.';
-      structuredResponse.show_doctors = true;
-    } else if (lowerQ.includes('skin') || lowerQ.includes('rash') || lowerQ.includes('acne') || lowerQ.includes('itching') || lowerQ.includes('khujli')) {
-      structuredResponse.suggested_specialty = 'Dermatology';
-      structuredResponse.specialty_reason = 'Dermatologists diagnose skin reactions, rashes, and cutaneous conditions.';
-      structuredResponse.show_doctors = true;
-    } else if (lowerQ.includes('bone') || lowerQ.includes('joint') || lowerQ.includes('knee') || lowerQ.includes('fracture') || lowerQ.includes('pain in leg') || lowerQ.includes('dard')) {
-      structuredResponse.suggested_specialty = 'Orthopedics';
-      structuredResponse.specialty_reason = 'Orthopedists evaluate musculoskeletal conditions, joints, and sports injuries.';
-      structuredResponse.show_doctors = true;
-    } else if (lowerQ.includes('headache') || lowerQ.includes('nerve') || lowerQ.includes('migraine') || lowerQ.includes('chakkar') || lowerQ.includes('dizziness')) {
-      structuredResponse.suggested_specialty = 'Neurology';
-      structuredResponse.specialty_reason = 'Neurologists treat brain, spinal, and nervous system symptoms.';
-      structuredResponse.show_doctors = true;
-    } else if (lowerQ.includes('child') || lowerQ.includes('baby') || lowerQ.includes('bachha') || lowerQ.includes('pediatric')) {
-      structuredResponse.suggested_specialty = 'Pediatrics';
-      structuredResponse.specialty_reason = 'Pediatricians specialize in child and infant wellness.';
-      structuredResponse.show_doctors = true;
-    } else if (lowerQ.includes('cough') || lowerQ.includes('khasi') || lowerQ.includes('fever') || lowerQ.includes('bukhar') || lowerQ.includes('cold') || lowerQ.includes('flu') || lowerQ.includes('vomit') || lowerQ.includes('stomach') || lowerQ.includes('pet')) {
+    // Expected when Gemini API key is placeholder; fall forward to grounded knowledge chunks
+  }
+
+  if (!geminiSuccess) {
+    // If query is generic "Find a doctor", provide specialty overview
+    if (lowerQ.includes('find') && lowerQ.includes('doctor')) {
       structuredResponse.suggested_specialty = 'General Medicine';
-      structuredResponse.specialty_reason = 'A General Physician can conduct initial triage and refer you to appropriate specialist care if needed.';
-      structuredResponse.show_doctors = true;
+      structuredResponse.specialty_reason = 'Explore verified medical specialists across Cardiology, Dermatology, Orthopedics, Pediatrics, and General Medicine.';
+      structuredResponse.message =
+        lang === 'hi'
+          ? 'हीलफ्लो पर आपका स्वागत है। आप अपनी समस्या के अनुसार उपयुक्त विशेषज्ञ (Cardiology, Dermatology, Orthopedics, Pediatrics, General Medicine) चुन सकते हैं। सामान्य शारीरिक स्वास्थ्य जांच या प्राथमिक परामर्श के लिए नीचे जनरल मेडिसिन विशेषज्ञ उपलब्ध हैं:'
+          : lang === 'hinglish'
+          ? 'HealFlow par aapka swagat hai. Aap apne health symptoms ke hisaab se suitable specialist (Cardiology, Dermatology, Orthopedics, Pediatrics, General Medicine) choose kar sakte hain. Primary health checkup ke liye neeche verified doctors listed hain:'
+          : 'Welcome to HealFlow. You can explore verified specialists across Cardiology, Dermatology, Orthopedics, Pediatrics, and General Medicine. For general health assessment, here are our active physicians:';
     } else {
-      // General conversational fallback if no known symptom matched
-      structuredResponse.message = lang === 'hi'
-        ? 'मैं आपकी स्वास्थ्य संबंधी प्राथमिक जानकारी और सही विशेषज्ञ खोजने में मदद कर सकता हूँ। कृपया अपने लक्षण या समस्या विस्तार से बताएं।'
-        : lang === 'hinglish'
-        ? 'Main aapki health se judi information aur right specialist doctor dhoondhne mein help kar sakta hoon. Kripya apne symptoms thoda detail mein share karein.'
-        : 'I can assist you in finding the right medical specialist on HealFlow. Could you please share a few more details about any symptoms or discomfort you are experiencing?';
-      structuredResponse.suggested_specialty = null;
-      structuredResponse.specialty_reason = null;
-      structuredResponse.show_doctors = false;
+      structuredResponse.message = buildGroundedClinicalResponse({
+        query,
+        lang,
+        suggestedSpecialty: ragSuggestedSpecialty,
+        symptomChunk,
+        knowledgeChunk,
+      });
     }
   }
 
@@ -210,4 +348,3 @@ export const processChatMessage = async (userMessage) => {
     doctors: doctorsList,
   };
 };
-

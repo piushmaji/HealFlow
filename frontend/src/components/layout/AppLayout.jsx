@@ -4,6 +4,7 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { ToastContainer } from '../common/Toast';
 import { ChatbotWidget } from '../chatbot/ChatbotWidget';
+import { IncomingConsultationNotification } from '../../features/dashboard/IncomingConsultationNotification';
 
 export const AppLayout = () => {
   const location = useLocation();
@@ -15,6 +16,7 @@ export const AppLayout = () => {
       <main className="flex-grow">
         <Outlet />
       </main>
+      <IncomingConsultationNotification />
       <ChatbotWidget />
       <ToastContainer />
       {!isAuthPage && <Footer />}

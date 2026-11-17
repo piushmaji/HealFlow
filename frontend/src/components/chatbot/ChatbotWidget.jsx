@@ -8,7 +8,7 @@ import { sendChatbotMessage } from '../../services/chatbotService';
 import { useAuth } from '../../context/AuthContext';
 
 export const ChatbotWidget = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isDoctor } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
@@ -26,8 +26,8 @@ export const ChatbotWidget = () => {
     }
   }, [messages, isTyping, isOpen]);
 
-  // Strict Policy: AI Assistant floating widget is ONLY rendered when user is authenticated/logged in
-  if (!isAuthenticated) {
+  // Strict Policy: AI Assistant floating widget is ONLY for patients, NOT for doctors, and must be logged in
+  if (!isAuthenticated || isDoctor) {
     return null;
   }
 

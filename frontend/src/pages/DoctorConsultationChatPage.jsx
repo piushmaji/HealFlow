@@ -661,24 +661,67 @@ export const DoctorConsultationChatPage = () => {
     setPermissionPrompt(type);
   };
 
+  // Robust helper to acquire camera and microphone with graceful mobile fallback
+  const acquireMediaStream = async (type) => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      throw new Error('Camera/Microphone not supported on this browser');
+    }
+
+    const isVideo = type === 'video';
+
+    // Strategy 1: Standard high-quality with user facing mode
+    if (isVideo) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+      } catch (err1) {
+        console.warn('Initial HD user-facing getUserMedia failed, trying relaxed mobile constraints:', err1.name, err1.message);
+      }
+
+      // Strategy 2: Relaxed video constraints for mobile Chrome / Webview
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: { facingMode: 'user' },
+        });
+      } catch (err2) {
+        console.warn('Relaxed facingMode getUserMedia failed, trying bare video: true:', err2.name, err2.message);
+      }
+
+      // Strategy 3: Bare video: true (grabs whatever default camera device is available)
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
+      } catch (err3) {
+        console.warn('Bare video getUserMedia failed, falling back to audio only:', err3.name, err3.message);
+      }
+    }
+
+    // Audio fallback if video fails completely or if type is audio
+    return await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    });
+  };
+
   const handleGrantPermission = async () => {
     const type = permissionPrompt;
     setPermissionPrompt(null);
     let stream = null;
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: type === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
-        });
-        mediaStreamRef.current = stream;
-        if (localVideoRef.current && type === 'video') {
-          localVideoRef.current.srcObject = stream;
-          localVideoRef.current.play().catch(() => {});
-        }
+      stream = await acquireMediaStream(type);
+      mediaStreamRef.current = stream;
+      if (localVideoRef.current && type === 'video') {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(() => {});
       }
     } catch (err) {
       console.warn('Microphone/Camera permission notice:', err.message);
+      showToast('Could not access camera/mic: ' + (err.message || 'Permission denied'), 'warning');
     }
 
     if (type === 'video') {
@@ -729,19 +772,15 @@ export const DoctorConsultationChatPage = () => {
     let stream = null;
 
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: callType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
-        });
-        mediaStreamRef.current = stream;
-        if (localVideoRef.current && callType === 'video') {
-          localVideoRef.current.srcObject = stream;
-          localVideoRef.current.play().catch(() => {});
-        }
+      stream = await acquireMediaStream(callType);
+      mediaStreamRef.current = stream;
+      if (localVideoRef.current && callType === 'video') {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(() => {});
       }
     } catch (err) {
       console.warn('Media hardware access error:', err.message);
+      showToast('Could not access camera/mic: ' + (err.message || 'Check device permissions'), 'warning');
     }
 
     if (callType === 'video') {

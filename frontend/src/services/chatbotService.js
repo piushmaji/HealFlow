@@ -7,6 +7,9 @@
 const getChatbotBase = () => {
   const envUrl = import.meta.env.VITE_BACKEND_URL;
   if (envUrl && !envUrl.includes('localhost')) {
+    if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && envUrl.startsWith('http://')) {
+      return envUrl.replace('http://', 'https://');
+    }
     return envUrl;
   }
 
@@ -14,8 +17,11 @@ const getChatbotBase = () => {
     const isHttps = window.location.protocol === 'https:';
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-    if (envUrl) {
-      return envUrl;
+    if (isHttps) {
+      if (envUrl && envUrl.startsWith('https://')) {
+        return envUrl;
+      }
+      return 'https://healflow.onrender.com/api/chat';
     }
 
     if (!isLocalhost && !isHttps) {

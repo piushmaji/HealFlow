@@ -7,6 +7,10 @@ const getBackendBase = () => {
   // If explicitly provided via Vite environment variable (e.g. on Render/Vercel)
   const envUrl = import.meta.env.VITE_BACKEND_URL;
   if (envUrl && !envUrl.includes('localhost')) {
+    // If running in HTTPS, ensure backend URL also uses HTTPS to prevent Mixed Content
+    if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && envUrl.startsWith('http://')) {
+      return envUrl.replace('http://', 'https://').replace('/api/chat', '/api/doctors');
+    }
     return envUrl.replace('/api/chat', '/api/doctors');
   }
 
@@ -15,9 +19,13 @@ const getBackendBase = () => {
     const isHttps = window.location.protocol === 'https:';
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-    // If on HTTPS (e.g. *.vercel.app) and envUrl is given, respect it
-    if (envUrl) {
-      return envUrl.replace('/api/chat', '/api/doctors');
+    // If on HTTPS (e.g. *.vercel.app)
+    if (isHttps) {
+      if (envUrl && envUrl.startsWith('https://')) {
+        return envUrl.replace('/api/chat', '/api/doctors');
+      }
+      // Return Render backend URL default if on HTTPS Vercel
+      return 'https://healflow.onrender.com/api/doctors';
     }
 
     if (!isLocalhost && !isHttps) {

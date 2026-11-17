@@ -75,15 +75,33 @@ export const DoctorConsultationChatPage = () => {
   const remoteVideoRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const pcRef = useRef(null); // Native RTCPeerConnection instance
+  const realtimeChannelRef = useRef(null); // Supabase Realtime Channel
   const [remoteStream, setRemoteStream] = useState(null);
   const [isPeerConnected, setIsPeerConnected] = useState(false);
 
-  // WebRTC ICE Servers (STUN)
+  // WebRTC ICE Servers (STUN & Public TURN for Mobile Cellular CGNAT traversal)
   const rtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelay',
+        credential: 'openrelay',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelay',
+        credential: 'openrelay',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelay',
+        credential: 'openrelay',
+      },
     ],
   };
 
@@ -118,9 +136,20 @@ export const DoctorConsultationChatPage = () => {
       }
     };
 
-    // Send local ICE candidates to backend
+    // Send local ICE candidates via Supabase Realtime channel & backend fallback
     pc.onicecandidate = (event) => {
       if (event.candidate && appointmentId) {
+        if (realtimeChannelRef.current) {
+          realtimeChannelRef.current.send({
+            type: 'broadcast',
+            event: 'CALL_SIGNAL',
+            payload: {
+              action: 'ICE_CANDIDATE',
+              senderRole: myRole,
+              candidate: event.candidate,
+            },
+          }).catch(() => {});
+        }
         updateCallSignalInBackend(appointmentId, {
           action: 'ICE_CANDIDATE',
           senderRole: myRole,
@@ -373,7 +402,109 @@ export const DoctorConsultationChatPage = () => {
     }
   }, [messages.length]);
 
-  // Real-Time Call Presence & WebRTC Signaling Poller (Every 1.2s)
+  // 1. Supabase Realtime Channel: Direct Instant Signaling & Chat across Doctor and Patient
+  useEffect(() => {
+    if (!appointmentId || !isSupabaseConfigured) return;
+
+    const channel = supabase.channel(`consultation:${appointmentId}`, {
+      config: { broadcast: { self: false } },
+    });
+    realtimeChannelRef.current = channel;
+
+    // Listen for direct instant WebRTC Call Signals
+    channel.on('broadcast', { event: 'CALL_SIGNAL' }, async ({ payload }) => {
+      if (!payload) return;
+      console.log('[Supabase Realtime] Received CALL_SIGNAL:', payload.action, payload);
+
+      // (A) Incoming call notification
+      if (payload.action === 'START_CALL') {
+        if (payload.senderRole !== myRole) {
+          setIncomingCall({
+            callType: payload.callType || 'video',
+            callerName: payload.senderName || (myRole === 'patient' ? 'Doctor' : 'Patient'),
+            offer: payload.offer,
+          });
+        }
+      }
+
+      // (B) Call accepted with Answer
+      else if (payload.action === 'ACCEPT_CALL') {
+        if (payload.senderRole !== myRole) {
+          setIncomingCall(null);
+          if (pcRef.current && payload.answer) {
+            if (pcRef.current.signalingState === 'have-local-offer') {
+              try {
+                await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.answer));
+              } catch (e) {
+                console.warn('[Realtime] setRemoteDescription answer error:', e);
+              }
+            }
+          }
+        }
+      }
+
+      // (C) Direct ICE candidate exchange
+      else if (payload.action === 'ICE_CANDIDATE') {
+        if (payload.senderRole !== myRole && payload.candidate && pcRef.current) {
+          const candKey = JSON.stringify(payload.candidate);
+          if (!appliedCandidatesRef.current.has(candKey)) {
+            appliedCandidatesRef.current.add(candKey);
+            try {
+              await pcRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            } catch (e) {
+              console.warn('[Realtime] addIceCandidate error:', e);
+            }
+          }
+        }
+      }
+
+      // (D) Call Ended
+      else if (payload.action === 'END_CALL') {
+        setIncomingCall(null);
+        if (isVoiceCallActive || isVideoCallActive) {
+          handleCleanUpMedia();
+          setIsVoiceCallActive(false);
+          setIsVideoCallActive(false);
+          showToast('Call ended by participant.', 'info');
+        }
+      }
+    });
+
+    // Listen for direct instant Chat messages
+    channel.on('broadcast', { event: 'NEW_CHAT_MESSAGE' }, ({ payload }) => {
+      if (!payload) return;
+      console.log('[Supabase Realtime] Received NEW_CHAT_MESSAGE:', payload);
+      setMessages((prev) => {
+        // Prevent duplicate if already received or added
+        if (prev.some((m) => m.id === payload.id || (m.text === payload.text && Math.abs(new Date(m.timestamp || 0) - new Date(payload.timestamp || 0)) < 2000))) {
+          return prev;
+        }
+        const isDocMsg = payload.senderRole === 'doctor';
+        return [
+          ...prev,
+          {
+            id: payload.id || `rt-${Date.now()}`,
+            sender: payload.sender || (isDocMsg ? 'Doctor' : 'Patient'),
+            text: payload.text,
+            time: payload.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            senderRole: payload.senderRole || (isDocMsg ? 'doctor' : 'patient'),
+            isDoctor: isDocMsg,
+          },
+        ];
+      });
+    });
+
+    channel.subscribe((status) => {
+      console.log(`[Supabase Realtime] consultation:${appointmentId} status:`, status);
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+      realtimeChannelRef.current = null;
+    };
+  }, [appointmentId, myRole, isVoiceCallActive, isVideoCallActive]);
+
+  // Real-Time Call Presence & WebRTC Signaling Poller (Fallback every 2s in case of reconnects)
   const appliedCandidatesRef = useRef(new Set());
 
   useEffect(() => {
@@ -387,11 +518,11 @@ export const DoctorConsultationChatPage = () => {
 
         // 1. Someone initiated a call and it's ringing
         if (signal.callState === 'RINGING') {
-          if (signal.caller?.role !== myRole) {
-            // I am the recipient! Show incoming call popup
+          if (signal.caller?.role !== myRole && !incomingCall) {
             setIncomingCall({
               callType: signal.callType,
               callerName: signal.caller?.name || (myRole === 'patient' ? 'Doctor' : 'Patient'),
+              offer: signal.offers?.[signal.caller?.role],
             });
           }
         }
@@ -408,17 +539,14 @@ export const DoctorConsultationChatPage = () => {
 
           const otherRole = myRole === 'doctor' ? 'patient' : 'doctor';
 
-          // WebRTC Negotiation: If we have an active RTCPeerConnection
           if (pcRef.current) {
-            // If other side provided an Answer to our Offer
             if (signal.answers && signal.answers[otherRole]) {
               if (pcRef.current.signalingState === 'have-local-offer') {
                 const answerDesc = new RTCSessionDescription(signal.answers[otherRole]);
-                await pcRef.current.setRemoteDescription(answerDesc).catch((e) => console.warn('setRemoteDescription answer err:', e));
+                await pcRef.current.setRemoteDescription(answerDesc).catch(() => {});
               }
             }
 
-            // If other side sent ICE candidates, add them
             if (signal.iceCandidates && signal.iceCandidates[otherRole]) {
               for (const cand of signal.iceCandidates[otherRole]) {
                 const candKey = JSON.stringify(cand);
@@ -426,9 +554,7 @@ export const DoctorConsultationChatPage = () => {
                   appliedCandidatesRef.current.add(candKey);
                   try {
                     await pcRef.current.addIceCandidate(new RTCIceCandidate(cand));
-                  } catch (e) {
-                    console.warn('addIceCandidate err:', e);
-                  }
+                  } catch (e) {}
                 }
               }
             }
@@ -436,7 +562,6 @@ export const DoctorConsultationChatPage = () => {
         }
         // 3. Call was ended / idle
         else if (signal.callState === 'IDLE') {
-          setIncomingCall(null);
           if (isVoiceCallActive || isVideoCallActive) {
             handleCleanUpMedia();
             setIsVoiceCallActive(false);
@@ -447,12 +572,12 @@ export const DoctorConsultationChatPage = () => {
       } catch (err) {}
     };
 
-    const interval = setInterval(pollSignal, 1200);
+    const interval = setInterval(pollSignal, 2000);
     return () => {
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, [appointmentId, myRole, isVoiceCallActive, isVideoCallActive]);
+  }, [appointmentId, myRole, isVoiceCallActive, isVideoCallActive, incomingCall]);
 
   // Stop local hardware devices and close RTCPeerConnection
   const handleCleanUpMedia = () => {
@@ -515,14 +640,24 @@ export const DoctorConsultationChatPage = () => {
       console.warn('WebRTC offer error:', rtcErr);
     }
 
-    // Broadcast call signal to backend
-    await updateCallSignalInBackend(appointmentId, {
+    // Broadcast call signal to Supabase Realtime & Backend fallback
+    const startPayload = {
       action: 'START_CALL',
       callType: type,
       senderRole: myRole,
       senderName: myName,
       offer: localOffer,
-    });
+    };
+
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'CALL_SIGNAL',
+        payload: startPayload,
+      }).catch(() => {});
+    }
+
+    await updateCallSignalInBackend(appointmentId, startPayload);
 
     showToast(`Calling ${isDoctor ? appointment?.patient_name || 'Patient' : appointment?.doctor_name}...`, 'info');
   };
@@ -560,9 +695,13 @@ export const DoctorConsultationChatPage = () => {
     // WebRTC: Check for Caller Offer and reply with Answer
     let localAnswer = null;
     try {
-      const signal = await getCallSignalFromBackend(appointmentId);
       const otherRole = myRole === 'doctor' ? 'patient' : 'doctor';
-      const remoteOffer = signal?.offers?.[otherRole];
+      let remoteOffer = incomingCall?.offer;
+
+      if (!remoteOffer) {
+        const signal = await getCallSignalFromBackend(appointmentId);
+        remoteOffer = signal?.offers?.[otherRole];
+      }
 
       const pc = initPeerConnection(stream);
       if (remoteOffer) {
@@ -575,12 +714,22 @@ export const DoctorConsultationChatPage = () => {
       console.warn('WebRTC accept/answer error:', rtcErr);
     }
 
-    await updateCallSignalInBackend(appointmentId, {
+    const acceptPayload = {
       action: 'ACCEPT_CALL',
       senderRole: myRole,
       senderName: myName,
       answer: localAnswer,
-    });
+    };
+
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'CALL_SIGNAL',
+        payload: acceptPayload,
+      }).catch(() => {});
+    }
+
+    await updateCallSignalInBackend(appointmentId, acceptPayload);
 
     showToast('Call connected! Camera & Mic Active.', 'success');
   };
@@ -588,6 +737,13 @@ export const DoctorConsultationChatPage = () => {
   // Reject / Decline Incoming Call
   const handleDeclineIncomingCall = async () => {
     setIncomingCall(null);
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'CALL_SIGNAL',
+        payload: { action: 'END_CALL' },
+      }).catch(() => {});
+    }
     await updateCallSignalInBackend(appointmentId, { action: 'END_CALL' });
     showToast('Call declined', 'info');
   };
@@ -598,6 +754,13 @@ export const DoctorConsultationChatPage = () => {
     setIsVoiceCallActive(false);
     setIsVideoCallActive(false);
     setIsCallMinimized(false);
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'CALL_SIGNAL',
+        payload: { action: 'END_CALL' },
+      }).catch(() => {});
+    }
     await updateCallSignalInBackend(appointmentId, { action: 'END_CALL' });
     showToast('Call ended.', 'info');
   };
@@ -633,16 +796,58 @@ export const DoctorConsultationChatPage = () => {
     setInputMessage('');
     setIsSending(true);
 
+    const msgId = `msg-${Date.now()}`;
+    const timestampStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     const optimisticMsg = {
-      id: `local-${Date.now()}`,
+      id: msgId,
       sender: myName,
       text: messageContent,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: timestampStr,
       senderRole: myRole,
       isDoctor: isDoctor,
+      timestamp: Date.now(),
     };
+
     setMessages((prev) => [...prev, optimisticMsg]);
 
+    // 1. Instant 0ms Broadcast via Supabase Realtime channel
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'NEW_CHAT_MESSAGE',
+        payload: {
+          id: msgId,
+          sender: myName,
+          text: messageContent,
+          time: timestampStr,
+          senderRole: myRole,
+          timestamp: Date.now(),
+        },
+      }).catch(() => {});
+    }
+
+    // 2. Direct persistence to Supabase chat_messages table
+    if (isSupabaseConfigured) {
+      supabase
+        .from('chat_messages')
+        .insert({
+          session_id: appointmentId,
+          sender: isDoctor ? 'assistant' : 'user',
+          content: messageContent,
+          metadata: {
+            appointment_id: appointmentId,
+            sender_name: myName,
+            sender_role: myRole,
+            created_at: new Date().toISOString(),
+          },
+        })
+        .then(({ error }) => {
+          if (error) console.warn('[Supabase] chat_messages insert notice:', error.message);
+        });
+    }
+
+    // 3. Dual persistence to Express backend
     try {
       await sendConsultationMessageToBackend(appointmentId, {
         sender: myName,

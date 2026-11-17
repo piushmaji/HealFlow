@@ -77,8 +77,8 @@ export const getGreetingResponse = (lang) => {
 };
 
 /**
- * Builds a thorough, empathetic clinical response grounded in verified knowledge chunks.
- * Formats clearly: Clinical Understanding, Clinical Context, Escalation Note, Recommended Specialty, and Verified Doctors.
+ * Builds a clean, friendly, and concise patient-friendly clinical summary.
+ * No raw database strings, no developer instructions, no system policies.
  */
 const buildGroundedClinicalResponse = ({
   query,
@@ -99,47 +99,97 @@ const buildGroundedClinicalResponse = ({
     ? symMeta.symptom_hinglish || symMeta.symptom_en || 'symptoms'
     : symMeta.symptom_en || 'reported symptoms';
 
-  const mappingNote = symMeta.mapping_note || '';
+  // Filter out any internal system text
+  const cleanClinicalText = (text) => {
+    if (!text) return '';
+    if (
+      text.includes('RAG answer') ||
+      text.includes('system_policy') ||
+      text.includes('source-backed content') ||
+      text.includes('Store source title') ||
+      text.includes('chatbot must not diagnose')
+    ) {
+      return '';
+    }
+    return text.trim();
+  };
 
-  let clinicalContext = '';
-  if (isHi && knwMeta.content_hi) clinicalContext = knwMeta.content_hi;
-  else if (isHinglish && knwMeta.content_hinglish) clinicalContext = knwMeta.content_hinglish;
-  else if (knwMeta.content_en) clinicalContext = knwMeta.content_en;
+  let clinicalContext = cleanClinicalText(
+    isHi ? knwMeta.content_hi : isHinglish ? knwMeta.content_hinglish : knwMeta.content_en
+  );
 
-  let escalation = '';
-  if (knwMeta.safety_or_escalation_note) {
-    escalation = knwMeta.safety_or_escalation_note;
+  let escalation = cleanClinicalText(knwMeta.safety_or_escalation_note);
+
+  // Friendly concise fallbacks if no clinical chunk or if text was internal policy
+  if (!clinicalContext) {
+    if (suggestedSpecialty === 'Orthopedics') {
+      clinicalContext = isHi
+        ? 'घुटने, जोड़ों या हड्डियों में दर्द का समय पर परीक्षण करवाना जरूरी है ताकि किसी लिगामेंट या कार्टिलेज समस्या को समय रहते ठीक किया जा सके।'
+        : isHinglish
+        ? 'Joints, knee ya bones ke pain ka timely evaluation zaroori hai taaki ligament ya joint stress ko identify karke proper relief mil sake.'
+        : 'Joint and musculoskeletal discomfort requires clinical evaluation to assess ligament health and mobility.';
+    } else if (suggestedSpecialty === 'General Medicine') {
+      clinicalContext = isHi
+        ? 'खांसी, बुखार या उल्टी/मतली जैसे लक्षण संक्रमण या पाचन संबंधी कारणों से हो सकते हैं। पर्याप्त आराम और हाइड्रेशन रखें।'
+        : isHinglish
+        ? 'Khasi, bukhar ya ulti/vomiting ke lakshan common infection ya digestive imbalance se ho sakte hain. Proper hydration aur rest zaroori hai.'
+        : 'Symptoms like cough, fever, or nausea are often associated with respiratory or digestive concerns. Hydration and rest are advised.';
+    } else if (suggestedSpecialty === 'Dermatology') {
+      clinicalContext = isHi
+        ? 'त्वचा की एलर्जी, रैशेस या खुजली के लिए सही विशेषज्ञ जांच जरूरी है।'
+        : isHinglish
+        ? 'Skin rashes ya allergy ke liye specialist consultation se accurate skin treatment milta hai.'
+        : 'Skin rashes or allergies are best evaluated by a dermatologist for targeted topical care.';
+    } else if (suggestedSpecialty === 'Neurology') {
+      clinicalContext = isHi
+        ? 'लगातार सिरदर्द या चक्कर आने पर न्यूरोलॉजिकल जांच की सलाह दी जाती है।'
+        : isHinglish
+        ? 'Persistent headache ya dizziness ke liye neurological evaluation helpful rehti hai.'
+        : 'Persistent headaches or dizziness warrant professional neurological assessment.';
+    } else if (suggestedSpecialty === 'Cardiology') {
+      clinicalContext = isHi
+        ? 'सीने में तकलीफ या असामान्य धड़कन के लिए कार्डियोलॉजी परीक्षण की आवश्यकता होती है।'
+        : isHinglish
+        ? 'Chest discomfort ya irregular heartbeat ke liye cardiology evaluation zaroori hai.'
+        : 'Cardiac symptoms warrant comprehensive evaluation by a specialist.';
+    } else if (suggestedSpecialty === 'Pediatrics') {
+      clinicalContext = isHi
+        ? 'बच्चों के लक्षणों के लिए हमेशा बाल रोग विशेषज्ञ (Pediatrician) से परामर्श लें।'
+        : isHinglish
+        ? 'Bachhon ke symptoms ke liye hamesha pediatrician se consult karein.'
+        : 'Pediatric symptoms require gentle and specialized care by a pediatrician.';
+    }
   }
 
   if (isHi) {
     return [
-      `### 🩺 क्लिनिकल समझ (${symptomName})`,
-      `${mappingNote ? mappingNote + ' ' : ''}${clinicalContext}`,
+      `### 🩺 स्वास्थ्य सारांश (${symptomName})`,
+      clinicalContext,
       escalation ? `> ⚠️ **महत्वपूर्ण सूचना**: ${escalation}` : '',
-      `### 👨‍⚕️ अनुशंसित विशेषज्ञ: ${suggestedSpecialty}`,
-      `आपके बताए गए लक्षणों के सटीक मूल्यांकन, शारीरिक परीक्षण एवं सही उपचार के लिए **${suggestedSpecialty}** विशेषज्ञ से परामर्श की सलाह दी जाती है। केवल लक्षणों के आधार पर खुद दवा लेना सुरक्षित नहीं है; एक योग्य डॉक्टर जांच द्वारा सही उपचार तय करते हैं।`,
-      `--- \n**उपलब्ध सत्यापित (Verified) ${suggestedSpecialty} डॉक्टर्स:**`
+      `### 👨‍⚕️ अनुशंसित विशेषज्ञ: **${suggestedSpecialty}**`,
+      `आपके बताए गए लक्षणों के सटीक मूल्यांकन और उपचार के लिए **${suggestedSpecialty}** डॉक्टर से परामर्श करने की सलाह दी जाती है।`,
+      `--- \n**उपलब्ध सत्यापित ${suggestedSpecialty} डॉक्टर्स:**`
     ].filter(Boolean).join('\n\n');
   }
 
   if (isHinglish) {
     return [
-      `### 🩺 Clinical Understanding (${symptomName})`,
-      `${mappingNote ? mappingNote + ' ' : ''}${clinicalContext}`,
-      escalation ? `> ⚠️ **Important Clinical Note**: ${escalation}` : '',
-      `### 👨‍⚕️ Recommended Specialist: ${suggestedSpecialty}`,
-      `Aapke bataye gaye symptoms ke clinical context ke mutabik, **${suggestedSpecialty}** specialist se consult karna sabse sahi step hai. Sahi diagnosis ke liye proper physical examination aur clinical review zaroori hai—kripya bina doctor ke koi medicine na lein.`,
+      `### 🩺 Health Summary (${symptomName})`,
+      clinicalContext,
+      escalation ? `> ⚠️ **Important Note**: ${escalation}` : '',
+      `### 👨‍⚕️ Recommended Specialist: **${suggestedSpecialty}**`,
+      `Aapke bataye gaye symptoms ke clinical context ke mutabik, **${suggestedSpecialty}** doctor se consult karna sabse sahi step hai.`,
       `--- \n**Available Verified ${suggestedSpecialty} Doctors on HealFlow:**`
     ].filter(Boolean).join('\n\n');
   }
 
   return [
-    `### 🩺 Clinical Overview (${symptomName})`,
-    `${mappingNote ? mappingNote + ' ' : ''}${clinicalContext}`,
+    `### 🩺 Health Summary (${symptomName})`,
+    clinicalContext,
     escalation ? `> ⚠️ **Clinical Note**: ${escalation}` : '',
-    `### 👨‍⚕️ Recommended Specialist: ${suggestedSpecialty}`,
-    `Based on clinical guidelines for your described symptoms, a consultation with a **${suggestedSpecialty}** specialist is advised for thorough physical evaluation and evidence-based care. Clinical symptoms alone cannot confirm an underlying diagnosis.`,
-    `--- \n**Verified ${suggestedSpecialty} Specialists Available on HealFlow:**`
+    `### 👨‍⚕️ Recommended Specialist: **${suggestedSpecialty}**`,
+    `Based on your described symptoms, consulting a **${suggestedSpecialty}** specialist is recommended for evaluation and proper guidance.`,
+    `--- \n**Available Verified ${suggestedSpecialty} Doctors on HealFlow:**`
   ].filter(Boolean).join('\n\n');
 };
 

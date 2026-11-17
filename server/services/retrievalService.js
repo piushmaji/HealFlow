@@ -191,7 +191,12 @@ export const retrieveRelevantContext = async (userQuery, { matchCount = 4, thres
         score += 60;
       }
 
-      // Unsupported specialty penalty
+      // Unsupported specialty penalty and system_policy exclusion:
+      // Internal system policies or guidelines must never be returned to patients as medical advice
+      if (meta.content_type === 'system_policy' || topic.includes('rag answer') || topic.includes('system policy') || topic.includes('privacy:')) {
+        score -= 200;
+      }
+
       const spec = meta.suggested_specialty || meta.related_specialty;
       if (spec === 'UNSUPPORTED') score -= 25;
 

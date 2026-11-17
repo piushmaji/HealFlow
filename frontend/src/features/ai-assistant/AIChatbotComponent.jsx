@@ -234,11 +234,12 @@ export const AIChatbotComponent = () => {
   };
 
   const quickPills = [
-    { label: 'Find a doctor', prompt: 'I want to find a doctor for consultation' },
-    { label: 'Chest tightness', prompt: 'Chest tightness and shortness of breath during walking' },
-    { label: 'Severe headache', prompt: 'Severe headache and migraine with light sensitivity' },
-    { label: 'Skin rash', prompt: 'Itchy red rash on skin with small bumps' },
-    { label: 'Child fever', prompt: 'Child has mild fever and cold symptoms' },
+    { label: '🩺 Knee Pain', prompt: 'I have severe knee joint pain and swelling' },
+    { label: '🤢 Vomiting / Ulti', prompt: 'Mujhe ulti aur vomiting aa rahi hai, pet kharab hai' },
+    { label: '🤧 Khasi / Cough', prompt: 'Mujhe khasi aur throat infection ho rahi hai' },
+    { label: '❤️ Chest Discomfort', prompt: 'Chest tightness and irregular heart palpitations' },
+    { label: '🧴 Skin Rash', prompt: 'Itchy red rash on skin with small bumps' },
+    { label: '👶 Child Fever', prompt: 'Bacche ko bukhar aur cold ho gaya hai' },
   ];
 
   return (
@@ -406,15 +407,20 @@ export const AIChatbotComponent = () => {
                   )}
 
                   {!msg.emergency && (
-                    <div className="bg-white rounded-3xl p-5 sm:p-6 text-[#1F1F1F] shadow-sm space-y-2.5">
-                      <div className="flex items-center gap-2 text-[#4C5BBD] font-black text-xs font-heading">
-                        <Sparkles className="w-4 h-4" />
-                        <span>HealFlow Medical Intelligence</span>
+                    <div className="bg-white rounded-3xl p-5 sm:p-6 text-[#1F1F1F] shadow-sm space-y-3 border border-slate-100">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div className="flex items-center gap-2 text-[#4C5BBD] font-black text-xs font-heading">
+                          <Sparkles className="w-4 h-4 text-[#4C5BBD]" />
+                          <span>HealFlow Medical Intelligence</span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F2F5FF] text-[#4C5BBD]">
+                          Clinical Guidance
+                        </span>
                       </div>
 
-                      <p className="whitespace-pre-line text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                      <div className="whitespace-pre-line text-xs sm:text-sm text-slate-700 leading-relaxed font-normal prose prose-sm max-w-none">
                         {msg.text}
-                      </p>
+                      </div>
                     </div>
                   )}
 
